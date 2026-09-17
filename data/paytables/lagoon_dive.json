@@ -1,0 +1,7 @@
+{
+  "id": "lagoon_dive",
+  "rtp_target": 0.962,
+  "grid": [5, 3],
+  "weights": [22, 22, 20, 16, 12, 3],
+  "symbols": ["A", "B", "C", "D", "E", "T"]
+}

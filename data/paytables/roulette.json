@@ -1,0 +1,19 @@
+{
+  "id": "european_roulette",
+  "pockets": 37,
+  "double_zero": false,
+  "house_edge": 0.0270,
+  "min_total": 1,
+  "max_total": 50,
+  "payouts": {
+    "straight": 35,
+    "split": 17,
+    "street": 11,
+    "corner": 8,
+    "line6": 5,
+    "column": 2,
+    "dozen": 2,
+    "even_money": 1
+  },
+  "copy": "House edge 2.70%."
+}

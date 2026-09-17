@@ -1,0 +1,18 @@
+{
+  "id": "coconut_wheel",
+  "cost_shells": 5,
+  "rtp_target": 0.955,
+  "spin_again_extra_cap": 2,
+  "slices": [
+    {"id": "small_2", "pays": 2, "count": 3},
+    {"id": "small_3", "pays": 3, "count": 3},
+    {"id": "small_5", "pays": 5, "count": 2},
+    {"id": "medium_8", "pays": 8, "count": 2},
+    {"id": "medium_12", "pays": 12, "count": 1},
+    {"id": "medium_15", "pays": 15, "count": 1},
+    {"id": "big_25", "pays": 25, "count": 1},
+    {"id": "big_40", "pays": 40, "count": 1},
+    {"id": "jackpot_100", "pays": 100, "count": 1},
+    {"id": "spin_again", "pays": 0, "count": 1, "spin_again": true}
+  ]
+}

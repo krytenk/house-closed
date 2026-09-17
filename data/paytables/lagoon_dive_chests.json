@@ -1,0 +1,12 @@
+{
+  "id": "lagoon_dive_chests",
+  "picks": 3,
+  "table": [
+    {"prize_x_bet": 1, "weight": 30},
+    {"prize_x_bet": 2, "weight": 25},
+    {"prize_x_bet": 3, "weight": 20},
+    {"prize_x_bet": 5, "weight": 15},
+    {"prize_x_bet": 8, "weight": 7},
+    {"prize_x_bet": 15, "weight": 3}
+  ]
+}

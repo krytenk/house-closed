@@ -1,0 +1,39 @@
+{
+  "skus": [
+    {
+      "id": "season_pass_paloma",
+      "price_usd": 7.99,
+      "grants": "cosmetics_track",
+      "tide_parts": false,
+      "odds_change": false,
+      "daily_grant_bonus_shells": 50,
+      "duration_days": 42
+    },
+    {
+      "id": "bungalow_linen_set",
+      "price_usd": 4.99,
+      "grants": "furniture_meshes_6",
+      "stats": false
+    },
+    {
+      "id": "felt_sunset_alt",
+      "price_usd": 2.99,
+      "grants": "alternate_felt",
+      "stats": false
+    },
+    {
+      "id": "cabinet_skin_orchid",
+      "price_usd": 2.99,
+      "grants": "palm_reels_cabinet_skin",
+      "stats": false
+    },
+    {
+      "id": "shell_pack_small",
+      "price_usd": 4.99,
+      "grants_shells": 800,
+      "desk_only": true,
+      "spend_cap_applies": true
+    }
+  ],
+  "forbidden_product_ids": ["daylight", "energy", "dice", "tide_part", "better_cards", "higher_rtp", "streak_insurance", "raid_shield"]
+}

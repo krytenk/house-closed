@@ -1,0 +1,29 @@
+{
+  "loop_size": 24,
+  "tiles": [
+    {"index": 0, "id": "PORCH", "land": "porch", "tap": "house", "shells": 0, "porch_daily": 25},
+    {"index": 1, "id": "BUNGALOW", "land": "bungalow", "tap": "decorate", "shells": 10, "decor_points": 1},
+    {"index": 2, "id": "PALM_PATH", "land": "rest", "tap": "", "shells": 5},
+    {"index": 3, "id": "BUILD_A", "land": "build", "tap": "", "shells_if_complete": 15},
+    {"index": 4, "id": "MARINA_DOOR", "land": "door", "tap": "jetski", "auto_launch": false},
+    {"index": 5, "id": "GUEST_BENCH", "land": "guest", "tap": "", "shells": 10, "postcard_fragment": true},
+    {"index": 6, "id": "BEACH", "land": "rest", "tap": "", "shells": 5},
+    {"index": 7, "id": "POKER_DOOR", "land": "door", "tap": "cabana", "label": "POKER", "auto_launch": false, "chance": true},
+    {"index": 8, "id": "BUILD_B", "land": "build", "tap": "", "shells_if_complete": 15},
+    {"index": 9, "id": "WILDLIFE", "land": "shades", "tap": "", "shells": 10, "loot_box": false},
+    {"index": 10, "id": "LANTERN_PATH", "land": "rest", "tap": "", "shells": 5},
+    {"index": 11, "id": "SLOTS_DOOR", "land": "door", "tap": "lounge", "label": "SLOTS", "auto_launch": false, "chance": true},
+    {"index": 12, "id": "CRANK", "land": "crank", "tap": "crank", "incomplete_shells": 10},
+    {"index": 13, "id": "SPLASH", "land": "splash", "tap": "", "shells": 20, "destroys_buildings": false},
+    {"index": 14, "id": "BUILD_C", "land": "build", "tap": "", "shells_if_complete": 15},
+    {"index": 15, "id": "ROULETTE_DOOR", "land": "door", "tap": "salon", "label": "ROULETTE", "auto_launch": false, "chance": true},
+    {"index": 16, "id": "COCONUT_GROVE", "land": "rest", "tap": "coconut_shy", "shells": 5},
+    {"index": 17, "id": "FRIEND_DOCK", "land": "dock", "tap": "visit", "shells": 10, "raid": false},
+    {"index": 18, "id": "BUILD_D", "land": "build", "tap": "", "shells_if_complete": 15},
+    {"index": 19, "id": "LOOKOUT", "land": "lookout", "tap": "", "lookout_daily": 15},
+    {"index": 20, "id": "NIGHTCLUB_DOOR", "land": "door", "tap": "nightclub", "auto_launch": false, "chance": false},
+    {"index": 21, "id": "BUILD_E", "land": "build", "tap": "", "shells_if_complete": 15},
+    {"index": 22, "id": "SPA_PATH", "land": "rest", "tap": "", "shells": 5},
+    {"index": 23, "id": "BUILD_F", "land": "build", "tap": "", "shells_if_complete": 15}
+  ]
+}
