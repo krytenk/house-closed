@@ -1,124 +1,72 @@
-extends Node3D
-## Boutique dusk lounge. Tiki-head cabinets with a real reel window.
+extends Control
+## Tiki Lounge is the locked interior painting. Reels sit in the cabinets.
+
+const ROOM := "res://art/seasons/paloma/refs/image-498ab62c-b49d-4719-8efa-0b0af2992a8d.jpg"
 
 var bet: int = 1
 var last: Dictionary = {}
 var spinning: bool = false
 var _mode: String = "palm"
 var _cells: Array = []
-var _overlay: CanvasLayer
 var _credits: Label
 var _result: Label
 var _name: Label
-var _odds: Label
-var _grid: GridContainer
 var _shot_path: String = ""
 var _shot_frames: int = 0
 
 
 func _ready() -> void:
-	_build_room()
-	_build_overlay()
+	_build()
 	_hud()
 	_shot_path = OS.get_environment("PALM_SHOT")
+	set_process(true)
 
 
-func _build_room() -> void:
-	RenderingServer.set_default_clear_color(Color(0.05, 0.07, 0.1))
-	# Floor
-	IslandKit.box(self, Vector3(16, 0.2, 12), Vector3(0, -0.1, 0), Color("#3A2A1C"))
-	# Open ocean wall
-	IslandKit.box(self, Vector3(16, 6, 0.2), Vector3(0, 3, -6.2), Color("#0B1A2A"))
-	var moon := IslandKit.sphere(self, 0.55, Vector3(3.5, 5.2, -5.8), Color("#F7F1E3"))
-	moon.material_override = IslandKit.mat(Color("#F7F1E3"), 0.2)
-	(moon.material_override as StandardMaterial3D).emission_enabled = true
-	(moon.material_override as StandardMaterial3D).emission = Color("#F7F1E3")
-	(moon.material_override as StandardMaterial3D).emission_energy_multiplier = 1.4
-	# Ocean strip
-	IslandKit.box(self, Vector3(16, 0.4, 4), Vector3(0, 0.1, -8.2), Color("#0B6E6F"))
-	# Thatch roof
-	IslandKit.box(self, Vector3(16.4, 0.25, 12.4), Vector3(0, 4.4, 0), Color("#C4A35A"))
-	# Posts
-	for x in [-7.2, 7.2]:
-		for z in [-4.5, 4.5]:
-			IslandKit.cyl(self, 0.16, 0.18, 4.4, Vector3(x, 2.1, z), Color("#6B4F2A"), 8)
-	# Bar
-	IslandKit.box(self, Vector3(8, 1.1, 0.8), Vector3(0, 0.7, 3.6), Color("#6B3F24"))
-	IslandKit.box(self, Vector3(8, 0.12, 1.1), Vector3(0, 1.28, 3.6), Color("#C4A35A"))
-	# Stools
-	for i in 4:
-		IslandKit.cyl(self, 0.22, 0.18, 0.7, Vector3(-2.4 + float(i) * 1.6, 0.45, 2.5), Color("#C4A35A"), 10)
-	# Two tiki cabinets facing the player
-	IslandKit.add_tiki_cabinet(self, Vector3(-1.6, 0, -1.2), 0.0)
-	IslandKit.add_tiki_cabinet(self, Vector3(1.6, 0, -1.2), 0.0)
-	# Empty plinth
-	IslandKit.box(self, Vector3(1.0, 0.4, 0.7), Vector3(4.2, 0.2, -1.2), Color("#6B3F24"))
-	var coming := Label3D.new()
-	coming.text = "Coming with the next tide"
-	coming.font_size = 28
-	coming.position = Vector3(4.2, 1.1, -1.2)
-	coming.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	coming.modulate = Color("#F7F1E3")
-	add_child(coming)
-	# Camera — dusk interior 35mm
-	var cam := Camera3D.new()
-	cam.fov = 42.0
-	cam.position = Vector3(0, 1.55, 4.8)
-	cam.current = true
-	add_child(cam)
-	cam.look_at(Vector3(0, 1.35, -1.2))
-	var lamp := OmniLight3D.new()
-	lamp.position = Vector3(0, 3.2, 0)
-	lamp.light_color = Color("#F4A261")
-	lamp.light_energy = 3.2
-	lamp.omni_range = 12.0
-	add_child(lamp)
-	var sun := DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-20, 160, 0)
-	sun.light_color = Color(0.35, 0.45, 0.7)
-	sun.light_energy = 0.35
-	add_child(sun)
-	var plate := Label3D.new()
-	plate.text = "SLOTS"
-	plate.font_size = 96
-	plate.position = Vector3(0, 3.5, -1.0)
-	plate.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	plate.modulate = Color("#F7F1E3")
-	plate.outline_modulate = Color("#1B1B1B")
-	plate.outline_size = 8
-	add_child(plate)
+func _process(_delta: float) -> void:
+	if _shot_path == "":
+		return
+	_shot_frames += 1
+	if _shot_frames == 16:
+		get_viewport().get_texture().get_image().save_png(_shot_path)
+		print("PALM_SHOT ", _shot_path)
+		get_tree().quit()
 
 
-func _build_overlay() -> void:
-	_overlay = CanvasLayer.new()
-	add_child(_overlay)
-	_name = _lbl(Vector2(0, 16), Vector2(1920, 48), "PALM REELS", 32)
-	_odds = _lbl(Vector2(0, 60), Vector2(1920, 32), "20 lines · fruit + pelican", 16)
-	_credits = _lbl(Vector2(0, 92), Vector2(1920, 32), "", 20)
+func _build() -> void:
+	var photo := TextureRect.new()
+	photo.set_anchors_preset(Control.PRESET_FULL_RECT)
+	photo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	photo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	photo.texture = load(ROOM)
+	photo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(photo)
+	_name = _lbl(Vector2(0, 12), Vector2(1920, 44), "SLOTS — FOR FUN", 28)
+	_credits = _lbl(Vector2(0, 52), Vector2(1920, 32), "", 18)
 	_result = _lbl(Vector2(0, 980), Vector2(1920, 40), "", 22)
-	_grid = GridContainer.new()
-	_grid.columns = 5
-	_grid.position = Vector2(710, 430)
-	_overlay.add_child(_grid)
+	var grid := GridContainer.new()
+	grid.columns = 5
+	## Sit the 5×3 reels on the left tiki cabinet window of the painting.
+	grid.position = Vector2(168, 390)
+	add_child(grid)
 	_cells = [[], [], [], [], []]
 	for row in 3:
 		for col in 5:
 			var tr := TextureRect.new()
-			tr.custom_minimum_size = Vector2(88, 88)
+			tr.custom_minimum_size = Vector2(52, 52)
 			tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 			tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 			tr.texture = load("res://art/seasons/paloma/sym_L.png")
-			_grid.add_child(tr)
+			grid.add_child(tr)
 			_cells[col].append(tr)
-	_btn(Vector2(860, 760), Vector2(200, 64), "Spin", _spin)
+	_btn(Vector2(860, 900), Vector2(200, 64), "Spin", _spin)
 	_btn(Vector2(24, 1000), Vector2(160, 52), "Back", func() -> void: Game.leave_chance_room())
-	_btn(Vector2(700, 840), Vector2(80, 48), "1", func() -> void: bet = 1; _hud())
-	_btn(Vector2(790, 840), Vector2(80, 48), "5", func() -> void: bet = 5; _hud())
-	_btn(Vector2(880, 840), Vector2(80, 48), "25", func() -> void: bet = 25; _hud())
-	_btn(Vector2(970, 840), Vector2(80, 48), "50", func() -> void: bet = 50; _hud())
-	_btn(Vector2(1600, 1000), Vector2(200, 52), "Wheel", func() -> void: _mode = "wheel"; _name.text = "COCONUT WHEEL"; _odds.text = "16 slices · 5 Shells"; _hud())
-	_btn(Vector2(1380, 1000), Vector2(200, 52), "Dive", func() -> void: _mode = "dive"; _name.text = "LAGOON DIVE"; _odds.text = "Clusters of 5"; _hud())
-	_btn(Vector2(1160, 1000), Vector2(200, 52), "Reels", func() -> void: _mode = "palm"; _name.text = "PALM REELS"; _odds.text = "20 lines · fruit + pelican"; _hud())
+	_btn(Vector2(700, 980), Vector2(72, 48), "1", func() -> void: bet = 1; _hud())
+	_btn(Vector2(780, 980), Vector2(72, 48), "5", func() -> void: bet = 5; _hud())
+	_btn(Vector2(860, 980), Vector2(72, 48), "25", func() -> void: bet = 25; _hud())
+	_btn(Vector2(940, 980), Vector2(72, 48), "50", func() -> void: bet = 50; _hud())
+	_btn(Vector2(1480, 1000), Vector2(140, 48), "Reels", func() -> void: _mode = "palm"; _name.text = "PALM REELS"; _hud())
+	_btn(Vector2(1630, 1000), Vector2(140, 48), "Wheel", func() -> void: _mode = "wheel"; _name.text = "COCONUT WHEEL"; _hud())
+	_btn(Vector2(1780, 1000), Vector2(120, 48), "Dive", func() -> void: _mode = "dive"; _name.text = "LAGOON DIVE"; _hud())
 
 
 func _lbl(pos: Vector2, sz: Vector2, text: String, size: int) -> Label:
@@ -130,8 +78,8 @@ func _lbl(pos: Vector2, sz: Vector2, text: String, size: int) -> Label:
 	l.add_theme_font_size_override("font_size", size)
 	l.add_theme_color_override("font_color", Color("#F7F1E3"))
 	l.add_theme_color_override("font_outline_color", Color("#1B1B1B"))
-	l.add_theme_constant_override("outline_size", 5)
-	_overlay.add_child(l)
+	l.add_theme_constant_override("outline_size", 6)
+	add_child(l)
 	return l
 
 
@@ -141,18 +89,7 @@ func _btn(pos: Vector2, sz: Vector2, text: String, cb: Callable) -> void:
 	b.size = sz
 	b.text = text
 	b.pressed.connect(cb)
-	_overlay.add_child(b)
-
-
-func _process(_delta: float) -> void:
-	if _shot_path == "":
-		return
-	_shot_frames += 1
-	if _shot_frames == 18:
-		var img: Image = get_viewport().get_texture().get_image()
-		img.save_png(_shot_path)
-		print("PALM_SHOT ", _shot_path)
-		get_tree().quit()
+	add_child(b)
 
 
 func _hud() -> void:

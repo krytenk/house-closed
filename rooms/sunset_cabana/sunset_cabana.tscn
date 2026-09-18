@@ -2,5 +2,9 @@
 
 [ext_resource type="Script" path="res://rooms/sunset_cabana/sunset_cabana.gd" id="1"]
 
-[node name="SunsetCabana" type="Node3D"]
+[node name="SunsetCabana" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
 script = ExtResource("1")
