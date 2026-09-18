@@ -12,6 +12,8 @@ func _ready() -> void:
 	$Title.text = "COCONUT SHY"
 	$Back.custom_minimum_size = Vector2(240, 56)
 	$Back.pressed.connect(func() -> void: Game.goto("island"))
+	$Bg.anchor_bottom = 0.0
+	$Bg.offset_bottom = 140.0
 	_reset()
 
 
@@ -22,6 +24,21 @@ func _reset() -> void:
 	throws_left = 8
 	hits = 0
 	$Result.text = ""
+
+
+func _draw() -> void:
+	for c in coconuts:
+		var col := Color(0.47, 0.28, 0.14) if bool(c["up"]) else Color(0.47, 0.28, 0.14, 0.25)
+		draw_circle(Vector2(float(c["x"]), float(c["y"])), 48.0, col)
+		if bool(c["up"]):
+			draw_circle(Vector2(float(c["x"]) - 8.0, float(c["y"]) - 6.0), 8.0, Color(0.12, 0.12, 0.12))
+			draw_circle(Vector2(float(c["x"]) + 10.0, float(c["y"]) - 10.0), 8.0, Color(0.12, 0.12, 0.12))
+			draw_circle(Vector2(float(c["x"]), float(c["y"]) + 8.0), 8.0, Color(0.12, 0.12, 0.12))
+	draw_circle(Vector2(960, 820), 28.0, Color(0.11, 0.11, 0.11))
+
+
+func _process(_delta: float) -> void:
+	queue_redraw()
 
 
 func _unhandled_input(event: InputEvent) -> void:

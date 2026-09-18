@@ -93,6 +93,9 @@ func advance_boot() -> void:
 	if PlaySafe.full_lock:
 		goto("break")
 		return
+	if Save.first_run_complete:
+		goto("island")
+		return
 	goto("lobby")
 
 
@@ -107,9 +110,8 @@ func accept_disclaimer() -> void:
 		goto("age_gate")
 		return
 	Save.disclaimer_accepted = true
-	Save.first_run_complete = true
 	Save.write_disk()
-	advance_boot()
+	goto("lobby")
 
 
 func request_walk() -> Dictionary:
@@ -173,6 +175,24 @@ func _ensure_hud() -> void:
 	hud = packed.instantiate()
 	hud.visible = false
 	add_child(hud)
+
+
+func play_sfx(kind: String) -> void:
+	var path := ""
+	match kind:
+		"click":
+			path = "res://audio/click.wav"
+		"win":
+			path = "res://audio/win.wav"
+		_:
+			return
+	if not ResourceLoader.exists(path):
+		return
+	var p := AudioStreamPlayer.new()
+	p.stream = load(path)
+	p.finished.connect(p.queue_free)
+	add_child(p)
+	p.play()
 
 
 func _set_hud_visible(v: bool) -> void:

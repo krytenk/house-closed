@@ -14,18 +14,13 @@ radius = 0.28
 rings = 8
 
 [node name="CamAerial" type="Camera3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 0.819152, 0.573576, 0, -0.573576, 0.819152, 0, 14, 16)
+transform = Transform3D(1, 0, 0, 0, 0.737277, 0.67559, 0, -0.67559, 0.737277, 0, 14.5, 19)
 current = true
-fov = 42.0
+fov = 46.0
 
 [node name="CamWalk" type="Camera3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, 12)
 current = false
 fov = 60.0
 
-[node name="Enter" type="Button" parent="."]
-offset_left = 1550.0
-offset_top = 980.0
-offset_right = 1780.0
-offset_bottom = 1040.0
-text = "Enter"
+

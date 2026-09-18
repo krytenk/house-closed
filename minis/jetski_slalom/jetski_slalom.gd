@@ -16,6 +16,8 @@ func _ready() -> void:
 	$Start.custom_minimum_size = Vector2(240, 56)
 	$Back.pressed.connect(func() -> void: Game.goto("island"))
 	$Start.pressed.connect(_start)
+	$Bg.anchor_bottom = 0.0
+	$Bg.offset_bottom = 180.0
 	_spawn()
 
 
@@ -38,7 +40,23 @@ func _start() -> void:
 	$Result.text = ""
 
 
+func _draw() -> void:
+	draw_rect(Rect2(0, 180, size.x, size.y - 180), Color(0.05, 0.38, 0.42, 1))
+	for i in 12:
+		var y: float = 200.0 + fmod(t * 140.0 + float(i) * 70.0, 520.0)
+		draw_line(Vector2(40, y), Vector2(size.x - 40, y), Color(0.18, 0.77, 0.71, 0.25), 2.0)
+	for g in gates:
+		var gy: float = 220.0 + (float(g["t"]) - t) * 160.0
+		if gy < 160.0 or gy > size.y - 80.0:
+			continue
+		var gx: float = 80.0 + float(g["x"]) * (size.x - 160.0)
+		var col := Color(0.96, 0.64, 0.38) if not bool(g["hit"]) else Color(0.18, 0.77, 0.71)
+		draw_circle(Vector2(gx, gy), 22.0, col)
+		draw_circle(Vector2(gx, gy), 8.0, Color(0.97, 0.95, 0.89))
+
+
 func _process(delta: float) -> void:
+	queue_redraw()
 	if not running:
 		return
 	t += delta

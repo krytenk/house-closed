@@ -2,39 +2,38 @@ extends Control
 
 
 func _ready() -> void:
-	$Chalk.text = "Paloma House"
-	$Mara.text = Game.text("mara_welcome")
+	$MaraBubble/Line.text = Game.text("mara_welcome")
 	$FunOnly.text = Game.text("fun_only")
-	$NoticeDaylight.text = "Daylight %d/40" % Daylight.current
-	$NoticeShells.text = "Shells %d" % Economy.hud_amount()
-	$PlaySafe.custom_minimum_size = Vector2(240, 56)
-	$PlaySafe.pressed.connect(func() -> void: Game.goto("play_safe"))
+	$Garden.pressed.connect(_garden)
 	$Lounge.pressed.connect(func() -> void: Game.enter_chance_room("lounge"))
 	$Cabana.pressed.connect(func() -> void: Game.goto("cabana"))
 	$Salon.pressed.connect(func() -> void: Game.enter_chance_room("salon"))
-	$Garden.pressed.connect(func() -> void: Game.goto("island"))
-	$Suite.pressed.connect(func() -> void: Game.goto("bungalow"))
 	$Desk.pressed.connect(func() -> void: Game.goto("shop"))
-	$Nightclub.pressed.connect(func() -> void: Game.goto("nightclub"))
+	$Suite.pressed.connect(func() -> void: Game.goto("bungalow"))
+	$PlaySafe.pressed.connect(func() -> void: Game.goto("play_safe"))
 	$Kitchen.pressed.connect(func() -> void: Game.goto("recipe_mix"))
-	$Postcards.pressed.connect(func() -> void: Game.goto("postcards"))
-	$Arthur.text = "Arthur"
-	$Nia.text = "Nia"
-	for b in [$Lounge, $Cabana, $Salon, $Garden, $Suite, $Desk, $Nightclub, $Kitchen, $Postcards]:
-		b.custom_minimum_size = Vector2(240, 52)
+	$Nightclub.pressed.connect(func() -> void: Game.goto("nightclub"))
 	_apply_locks()
+	var shot: String = OS.get_environment("PALM_SHOT")
+	if shot != "":
+		await RenderingServer.frame_post_draw
+		await RenderingServer.frame_post_draw
+		get_viewport().get_texture().get_image().save_png(shot)
+		print("PALM_SHOT ", shot)
+		get_tree().quit()
+
+
+func _garden() -> void:
+	Save.first_run_complete = true
+	Save.write_disk()
+	Game.goto("island")
 
 
 func _apply_locks() -> void:
-	if not RegionPolicy.chance_rooms_open():
+	if not RegionPolicy.chance_rooms_open() or not PlaySafe.lounge_salon_human_allowed():
 		$Lounge.disabled = true
 		$Salon.disabled = true
 		$Cabana.disabled = true
-		$Blocked.text = Game.text("wa_chance_block")
-	if not PlaySafe.lounge_salon_human_allowed():
-		$Lounge.disabled = true
-		$Salon.disabled = true
-		$Cabana.disabled = true
-		$Blocked.text = Game.text("self_exclude_on")
+		$Blocked.text = Game.text("wa_chance_block") if not RegionPolicy.chance_rooms_open() else Game.text("self_exclude_on")
 	if PlaySafe.full_lock:
 		Game.goto("break")

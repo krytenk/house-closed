@@ -1,7 +1,8 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://ui/hud.gd" id="1"]
 [ext_resource type="Texture2D" path="res://art/seasons/paloma/shades.png" id="2"]
+[ext_resource type="Texture2D" path="res://art/seasons/paloma/icon_sun.png" id="3"]
 
 [node name="HUD" type="CanvasLayer"]
 layer = 20
@@ -14,50 +15,62 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
 
-[node name="Shades" type="TextureRect" parent="Root"]
-layout_mode = 0
-offset_left = 24.0
-offset_top = 24.0
-offset_right = 104.0
-offset_bottom = 104.0
+[node name="TopBar" type="HBoxContainer" parent="Root"]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_left = 16.0
+offset_top = 16.0
+offset_right = -16.0
+offset_bottom = 88.0
+theme_override_constants/separation = 12
+mouse_filter = 2
+
+[node name="Shades" type="TextureRect" parent="Root/TopBar"]
+custom_minimum_size = Vector2(72, 72)
+layout_mode = 2
 texture = ExtResource("2")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="Daylight" type="Label" parent="Root"]
-layout_mode = 0
-offset_left = 120.0
-offset_top = 28.0
-offset_right = 280.0
-offset_bottom = 72.0
-theme_override_colors/font_color = Color(0.968627, 0.945098, 0.890196, 1)
-theme_override_font_sizes/font_size = 28
-text = "40/40"
+[node name="DayPill" type="PanelContainer" parent="Root/TopBar"]
+layout_mode = 2
 
-[node name="Shells" type="Label" parent="Root"]
-layout_mode = 0
-offset_left = 300.0
-offset_top = 28.0
-offset_right = 520.0
-offset_bottom = 72.0
-theme_override_colors/font_color = Color(0.968627, 0.945098, 0.890196, 1)
+[node name="DayRow" type="HBoxContainer" parent="Root/TopBar/DayPill"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Sun" type="TextureRect" parent="Root/TopBar/DayPill/DayRow"]
+custom_minimum_size = Vector2(36, 36)
+layout_mode = 2
+texture = ExtResource("3")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="DaylightNum" type="Label" parent="Root/TopBar/DayPill/DayRow"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.105882, 0.105882, 0.105882, 1)
+theme_override_font_sizes/font_size = 28
+text = "40"
+
+[node name="DayCap" type="Label" parent="Root/TopBar/DayPill/DayRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.105882, 0.105882, 0.105882, 0.55)
+theme_override_font_sizes/font_size = 18
+text = "/40"
+
+[node name="ShellPill" type="PanelContainer" parent="Root/TopBar"]
+layout_mode = 2
+
+[node name="ShellsNum" type="Label" parent="Root/TopBar/ShellPill"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.105882, 0.105882, 0.105882, 1)
 theme_override_font_sizes/font_size = 28
 text = "1000"
 
-[node name="Walk" type="Button" parent="Root"]
-layout_mode = 1
-anchors_preset = 7
-anchor_left = 0.5
-anchor_top = 1.0
-anchor_right = 0.5
-anchor_bottom = 1.0
-offset_left = -260.0
-offset_top = -88.0
-offset_right = -80.0
-offset_bottom = -24.0
-text = "Walk"
-
-[node name="House" type="Button" parent="Root"]
+[node name="Walk" type="TextureButton" parent="Root"]
 layout_mode = 1
 anchors_preset = 7
 anchor_left = 0.5
@@ -65,12 +78,40 @@ anchor_top = 1.0
 anchor_right = 0.5
 anchor_bottom = 1.0
 offset_left = -70.0
-offset_top = -88.0
+offset_top = -168.0
 offset_right = 70.0
-offset_bottom = -24.0
-text = "House"
+offset_bottom = -28.0
+ignore_texture_size = true
+stretch_mode = 5
 
-[node name="PauseBtn" type="Button" parent="Root"]
+[node name="House" type="TextureButton" parent="Root"]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 24.0
+offset_top = -128.0
+offset_right = 112.0
+offset_bottom = -40.0
+ignore_texture_size = true
+stretch_mode = 5
+
+[node name="PauseBtn" type="TextureButton" parent="Root"]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -112.0
+offset_top = -128.0
+offset_right = -24.0
+offset_bottom = -40.0
+ignore_texture_size = true
+stretch_mode = 5
+
+[node name="Enter" type="Button" parent="Root"]
+visible = false
 layout_mode = 1
 anchors_preset = 7
 anchor_left = 0.5
@@ -78,10 +119,38 @@ anchor_top = 1.0
 anchor_right = 0.5
 anchor_bottom = 1.0
 offset_left = 90.0
-offset_top = -88.0
+offset_top = -168.0
 offset_right = 250.0
-offset_bottom = -24.0
-text = "Pause"
+offset_bottom = -104.0
+theme_override_font_sizes/font_size = 22
+
+[node name="EnterLabel" type="Label" parent="Root/Enter"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme_override_font_sizes/font_size = 22
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Die" type="Label" parent="Root"]
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -80.0
+offset_top = -180.0
+offset_right = 80.0
+offset_bottom = -40.0
+theme_override_colors/font_color = Color(0.968627, 0.945098, 0.890196, 1)
+theme_override_colors/font_outline_color = Color(0.105882, 0.105882, 0.105882, 1)
+theme_override_constants/outline_size = 10
+theme_override_font_sizes/font_size = 96
+text = "6"
+horizontal_alignment = 1
 
 [node name="Toast" type="Label" parent="Root"]
 visible = false
@@ -91,12 +160,14 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -400.0
-offset_top = 160.0
-offset_right = 400.0
-offset_bottom = 220.0
+offset_left = -420.0
+offset_top = 120.0
+offset_right = 420.0
+offset_bottom = 180.0
 theme_override_colors/font_color = Color(0.968627, 0.945098, 0.890196, 1)
-theme_override_font_sizes/font_size = 22
+theme_override_colors/font_outline_color = Color(0.105882, 0.105882, 0.105882, 1)
+theme_override_constants/outline_size = 6
+theme_override_font_sizes/font_size = 24
 horizontal_alignment = 1
 
 [node name="ZeroBox" type="Panel" parent="Root"]
@@ -107,17 +178,17 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -320.0
-offset_top = -140.0
-offset_right = 320.0
-offset_bottom = 140.0
+offset_left = -300.0
+offset_top = -120.0
+offset_right = 300.0
+offset_bottom = 120.0
 
 [node name="Msg" type="Label" parent="Root/ZeroBox"]
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
-offset_top = 24.0
-offset_bottom = 100.0
+offset_top = 20.0
+offset_bottom = 88.0
 theme_override_font_sizes/font_size = 22
 text = "Daylight returns with the clock."
 horizontal_alignment = 1
@@ -130,8 +201,8 @@ anchor_left = 0.5
 anchor_top = 1.0
 anchor_right = 0.5
 anchor_bottom = 1.0
-offset_left = -160.0
-offset_top = -80.0
-offset_right = 160.0
-offset_bottom = -24.0
+offset_left = -150.0
+offset_top = -72.0
+offset_right = 150.0
+offset_bottom = -16.0
 text = "Return to Paloma House."
