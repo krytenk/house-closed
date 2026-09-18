@@ -6,7 +6,9 @@ const SCENES := {
 	"lock": "res://ui/boot/disclaimer_lock.tscn",
 	"lobby": "res://world/hotel_lobby/lobby.tscn",
 	"island": "res://world/paloma_atoll.tscn",
-	"lounge": "res://rooms/tiki_lounge/tiki_lounge.tscn",
+	"casino_floor": "res://rooms/tiki_lounge/casino_floor.tscn",
+	"slot_palm": "res://rooms/tiki_lounge/slot_palm.tscn",
+	"lounge": "res://rooms/tiki_lounge/casino_floor.tscn",
 	"cabana": "res://rooms/sunset_cabana/sunset_cabana.tscn",
 	"salon": "res://rooms/coral_salon/coral_salon.tscn",
 	"tide": "res://world/tide_machine/tide_machine.tscn",
@@ -67,17 +69,17 @@ func goto(key: String) -> void:
 	if not SCENES.has(key):
 		push_error("Unknown scene " + key)
 		return
-	if key in ["lounge", "salon", "cabana"] and not RegionPolicy.chance_rooms_open():
+	if key in ["lounge", "salon", "cabana", "casino_floor", "slot_palm"] and not RegionPolicy.chance_rooms_open():
 		toast(text("wa_chance_block"))
 		return
-	if key in ["lounge", "salon"] and not PlaySafe.chance_staking_allowed():
+	if key in ["lounge", "salon", "slot_palm"] and not PlaySafe.chance_staking_allowed():
 		toast(text("cool_off_on"))
 		return
-	if key in ["lounge", "salon"] and not PlaySafe.lounge_salon_human_allowed():
+	if key in ["lounge", "salon", "casino_floor", "slot_palm"] and not PlaySafe.lounge_salon_human_allowed():
 		toast(text("self_exclude_on"))
 		return
 	current_scene_key = key
-	if key in ["lounge", "salon", "cabana", "island", "lobby", "jetski", "coconut_shy", "recipe_mix"]:
+	if key in ["lounge", "salon", "cabana", "island", "lobby", "casino_floor", "slot_palm", "jetski", "coconut_shy", "recipe_mix"]:
 		log_event("room_enter", {"room": key})
 	_set_hud_visible(key in ["island"])
 	get_tree().change_scene_to_file(SCENES[key])
@@ -92,9 +94,6 @@ func advance_boot() -> void:
 		return
 	if PlaySafe.full_lock:
 		goto("break")
-		return
-	if Save.first_run_complete:
-		goto("island")
 		return
 	goto("lobby")
 
@@ -146,24 +145,27 @@ func can_spin_or_deal() -> bool:
 
 
 func enter_chance_room(key: String) -> void:
-	if not can_spin_or_deal():
+	if not can_spin_or_deal() and key != "cabana":
 		toast(text("daylight_returns"))
 		return
 	if key != "cabana":
 		if not PlaySafe.chance_staking_allowed():
 			toast(text("cool_off_on"))
 			return
-	Economy.enter_table_room()
+	if key == "slot_palm":
+		Economy.enter_table_room()
+	elif key != "cabana" and key != "casino_floor":
+		Economy.enter_table_room()
 	goto(key)
 
 
 func leave_chance_room() -> void:
-	if current_scene_key in ["lounge", "salon"]:
+	if current_scene_key in ["lounge", "salon", "slot_palm"]:
 		var net: int = Economy.reality_check_net()
 		toast(text("reality_check", {"spins": Economy.spins_today, "net": net}))
 	Economy.exit_table_room()
 	Save.write_disk()
-	goto("island")
+	goto("casino_floor")
 
 
 func _ensure_hud() -> void:
