@@ -96,17 +96,18 @@ func _build() -> void:
 	hbox.size = Vector3(2.2, 2.4, 2.0)
 	hs.shape = hbox
 	hall_area.add_child(hs)
+	add_child(hall_area)
 	if _hall:
 		hall_area.global_position = _hall.global_position + Vector3(0, 1.2, 0)
 	else:
 		hall_area.position = Vector3(5.2, 1.2, 0)
-	add_child(hall_area)
 	# Soft hall glow
 	var glow := MeshInstance3D.new()
 	var gq := QuadMesh.new()
 	gq.size = Vector2(1.8, 2.6)
 	glow.mesh = gq
-	glow.position = hall_area.position + Vector3(-0.3, 0.2, 0)
+	add_child(glow)
+	glow.global_position = hall_area.global_position + Vector3(-0.3, 0.2, 0)
 	glow.rotation_degrees = Vector3(0, 90, 0)
 	var gm := StandardMaterial3D.new()
 	gm.albedo_color = Color(1.0, 0.78, 0.4, 0.35)
@@ -118,7 +119,6 @@ func _build() -> void:
 	gm.cull_mode = BaseMaterial3D.CULL_DISABLED
 	glow.material_override = gm
 	glow.name = "HallGlow"
-	add_child(glow)
 	_player = CharacterBody3D.new()
 	_player.name = "Player"
 	var spawn := room.find_child("PlayerSpawn", true, false) as Node3D
