@@ -1,202 +1,292 @@
 extends Node3D
-## Casino floor — bank of slots. Click a machine to sit.
+## 3D casino lounge — walk among real cabinets, sit to play.
 
-const FLOOR_TEX := "res://art/seasons/paloma/refs/image-498ab62c-b49d-4719-8efa-0b0af2992a8d.jpg"
-const CAB_PALM := "res://art/seasons/paloma/cabinet_palm.jpg"
-const CAB_WHEEL := "res://art/seasons/paloma/cabinet_wheel.jpg"
-const CAB_DIVE := "res://art/seasons/paloma/cabinet_dive.jpg"
+const ROOM := "res://art/models/casino_lounge.glb"
+const CABINET := "res://art/models/tiki_cabinet.glb"
 
+var _player: CharacterBody3D
 var _cam: Camera3D
+var _hint: Label
+var _cabinets: Array = []
+var _hover: int = -1
+var _entering: bool = false
 var _yaw: float = 0.0
 var _pitch: float = 0.0
-var _dragging: bool = false
-var _entering: bool = false
-var _machines: Array = []
-var _hint: Label
-var _shot_path: String = ""
-var _shot_frames: int = 0
 
 
 func _ready() -> void:
 	_build()
-	_shot_path = OS.get_environment("PALM_SHOT")
-	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 	set_process(true)
+	set_physics_process(true)
 
 
-func _process(_delta: float) -> void:
-	if _shot_path != "":
-		_shot_frames += 1
-		if _shot_frames == 18:
-			get_viewport().get_texture().get_image().save_png(_shot_path)
-			print("PALM_SHOT ", _shot_path)
-			get_tree().quit()
-			return
-	if _entering:
+func _exit_tree() -> void:
+	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+
+
+func _physics_process(delta: float) -> void:
+	if _entering or _player == null:
 		return
-	for i in _machines.size():
-		var g: MeshInstance3D = (_machines[i] as Dictionary)["glow"]
-		var m: StandardMaterial3D = g.material_override
-		var pulse: float = 0.15 + 0.1 * sin(Time.get_ticks_msec() / 450.0 + float(i))
-		m.albedo_color.a = pulse
-		m.emission_energy_multiplier = 0.6 + pulse
+	var input := Vector2(
+		Input.get_action_strength("ui_right") - Input.get_action_strength("ui_left"),
+		Input.get_action_strength("ui_down") - Input.get_action_strength("ui_up")
+	)
+	# Also WASD via physical keys
+	if Input.is_key_pressed(KEY_A):
+		input.x -= 1
+	if Input.is_key_pressed(KEY_D):
+		input.x += 1
+	if Input.is_key_pressed(KEY_W):
+		input.y -= 1
+	if Input.is_key_pressed(KEY_S):
+		input.y += 1
+	input = input.limit_length(1.0)
+	var basis := Basis.from_euler(Vector3(0, _yaw, 0))
+	var move := (-basis.z * -input.y + basis.x * input.x) * 3.6
+	_player.velocity.x = move.x
+	_player.velocity.z = move.z
+	_player.velocity.y = 0
+	_player.move_and_slide()
+	_update_hover()
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	if _entering:
 		return
-	if event is InputEventMouseButton:
-		var mb := event as InputEventMouseButton
-		if mb.button_index == MOUSE_BUTTON_RIGHT:
-			_dragging = mb.pressed
-		elif mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
-			var vp := get_viewport().get_visible_rect().size
-			# Lower-middle band over the three cabinets
-			if mb.position.y > vp.y * 0.28 and mb.position.y < vp.y * 0.88:
-				var frac: float = mb.position.x / vp.x
-				if frac > 0.12 and frac < 0.36:
-					_sit(0)
-				elif frac > 0.38 and frac < 0.62:
-					_sit(1)
-				elif frac > 0.64 and frac < 0.88:
-					_sit(2)
-	if event is InputEventMouseMotion and _dragging:
+	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		var mm := event as InputEventMouseMotion
-		_yaw -= mm.relative.x * 0.003
-		_pitch -= mm.relative.y * 0.0025
-		_yaw = clampf(_yaw, -0.7, 0.7)
-		_pitch = clampf(_pitch, -0.3, 0.3)
-		_cam.rotation = Vector3(_pitch, _yaw, 0.0)
+		_yaw -= mm.relative.x * 0.0025
+		_pitch -= mm.relative.y * 0.0020
+		_pitch = clampf(_pitch, -0.45, 0.45)
+		_cam.rotation = Vector3(_pitch, 0, 0)
+		_player.rotation.y = _yaw
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		if _hover >= 0:
+			_sit(_hover)
+	if event.is_action_pressed("ui_accept") or event.is_action_pressed("walk"):
+		if _hover >= 0:
+			_sit(_hover)
 	if event.is_action_pressed("ui_cancel"):
+		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 		Game.goto("lobby")
+	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+		if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+			Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+		else:
+			Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
 
 func _build() -> void:
-	RenderingServer.set_default_clear_color(Color(0.04, 0.05, 0.07))
-	var plate := MeshInstance3D.new()
-	var pm := QuadMesh.new()
-	pm.size = Vector2(19.2, 10.8)
-	plate.mesh = pm
-	plate.position = Vector3(0, 1.55, -5.0)
-	var mat := StandardMaterial3D.new()
-	mat.albedo_texture = load(FLOOR_TEX)
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-	plate.material_override = mat
-	add_child(plate)
-	var floor := MeshInstance3D.new()
-	var fm := PlaneMesh.new()
-	fm.size = Vector2(14, 10)
-	floor.mesh = fm
-	var fm_mat := StandardMaterial3D.new()
-	fm_mat.albedo_color = Color(0.12, 0.09, 0.07)
-	floor.material_override = fm_mat
-	add_child(floor)
-	_machines = []
-	var cabs := [
-		{"tex": CAB_PALM, "x": -2.35},
-		{"tex": CAB_WHEEL, "x": 0.0},
-		{"tex": CAB_DIVE, "x": 2.35},
-	]
-	for i in cabs.size():
-		var c: Dictionary = cabs[i]
-		var cab := MeshInstance3D.new()
-		var qm := QuadMesh.new()
-		qm.size = Vector2(1.85, 2.85)
-		cab.mesh = qm
-		cab.position = Vector3(float(c["x"]), 1.4, -1.85)
-		var cm := StandardMaterial3D.new()
-		cm.albedo_texture = load(str(c["tex"]))
-		cm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		cm.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR
-		cab.material_override = cm
-		add_child(cab)
-		var glow := MeshInstance3D.new()
-		var gq := QuadMesh.new()
-		gq.size = Vector2(2.05, 3.05)
-		glow.mesh = gq
-		glow.position = Vector3(float(c["x"]), 1.4, -1.82)
-		var gm := StandardMaterial3D.new()
-		gm.albedo_color = Color(1.0, 0.75, 0.35, 0.2)
-		gm.emission_enabled = true
-		gm.emission = Color(1.0, 0.7, 0.3)
-		gm.emission_energy_multiplier = 1.0
-		gm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		gm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		gm.cull_mode = BaseMaterial3D.CULL_DISABLED
-		glow.material_override = gm
-		add_child(glow)
-		_machines.append({"cab": cab, "glow": glow, "x": float(c["x"])})
+	RenderingServer.set_default_clear_color(Color(0.03, 0.04, 0.06))
+	var room_ps: PackedScene = load(ROOM)
+	var room: Node3D = room_ps.instantiate()
+	room.name = "LoungeMesh"
+	_paint_room(room)
+	add_child(room)
+	# Floor collision
+	var floor_body := StaticBody3D.new()
+	var floor_shape := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = Vector3(14, 0.2, 10)
+	floor_shape.shape = box
+	floor_body.position = Vector3(0, -0.05, 0)
+	floor_body.add_child(floor_shape)
+	add_child(floor_body)
+	# Player
+	_player = CharacterBody3D.new()
+	_player.name = "Player"
+	var spawn := _find_named(room, "PlayerSpawn")
+	_player.position = spawn.global_position if spawn else Vector3(0, 0.1, -1.5)
+	_player.position.y = 0.1
+	var pcol := CollisionShape3D.new()
+	var cap := CapsuleShape3D.new()
+	cap.radius = 0.28
+	cap.height = 1.5
+	pcol.shape = cap
+	pcol.position.y = 0.85
+	_player.add_child(pcol)
 	_cam = Camera3D.new()
-	_cam.fov = 52.0
-	_cam.position = Vector3(0, 1.55, 2.6)
+	_cam.name = "Cam"
+	_cam.fov = 70.0
+	_cam.position = Vector3(0, 1.55, 0)
 	_cam.current = true
-	add_child(_cam)
-	var lamp := OmniLight3D.new()
-	lamp.position = Vector3(0, 2.6, 0)
-	lamp.light_color = Color(1.0, 0.7, 0.4)
-	lamp.light_energy = 2.8
-	lamp.omni_range = 12.0
-	add_child(lamp)
-	var layer := CanvasLayer.new()
-	layer.layer = 12
-	add_child(layer)
-	# Three invisible machine hotspots across the lower-middle of the screen
+	_player.add_child(_cam)
+	add_child(_player)
+	# Cabinets at spawn markers
+	var cab_ps: PackedScene = load(CABINET)
+	_cabinets.clear()
 	for i in 3:
-		var hs := Button.new()
-		hs.name = "MachineHotspot_%d" % i
-		hs.flat = true
-		hs.focus_mode = Control.FOCUS_NONE
-		hs.modulate = Color(1, 1, 1, 0.01)
-		hs.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-		hs.offset_top = -720
-		hs.offset_bottom = -160
-		var left_frac: float = 0.12 + float(i) * 0.26
-		hs.anchor_left = left_frac
-		hs.anchor_right = left_frac + 0.24
-		hs.offset_left = 0
-		hs.offset_right = 0
-		var idx: int = i
-		hs.pressed.connect(func() -> void: _sit(idx))
-		hs.mouse_entered.connect(func() -> void: _hint.text = "Sit at this machine")
-		hs.mouse_exited.connect(func() -> void: _hint.text = "Click a glowing machine to sit")
-		layer.add_child(hs)
+		var marker := _find_named(room, "CabinetSpawn_%d" % i)
+		var cab: Node3D = cab_ps.instantiate()
+		cab.name = "Cabinet_%d" % i
+		if marker:
+			cab.global_transform = marker.global_transform
+		else:
+			cab.position = Vector3(-2.4 + float(i) * 2.4, 0, 2.2)
+		# Face toward player spawn (negative Z in room space roughly toward -Y in blender export)
+		# Face player (cabinets sit at -Z; player looks -Z)
+		cab.rotate_y(0)
+		_paint_cabinet(cab)
+		add_child(cab)
+		var area := Area3D.new()
+		area.name = "SitArea"
+		var ashape := CollisionShape3D.new()
+		var abox := BoxShape3D.new()
+		abox.size = Vector3(1.4, 2.2, 1.2)
+		ashape.shape = abox
+		ashape.position = Vector3(0, 1.0, 0.4)
+		area.add_child(ashape)
+		cab.add_child(area)
+		_cabinets.append({"root": cab, "area": area})
+	# Place player facing the bank
+	_player.position = Vector3(0, 0.1, 1.8)
+	_yaw = 0.0
+	_player.rotation.y = 0.0
+	# Lights — warm lounge key + rim on cabinets
+	var lamp := OmniLight3D.new()
+	lamp.position = Vector3(0, 2.6, 0.5)
+	lamp.light_color = Color(1.0, 0.75, 0.45)
+	lamp.light_energy = 5.0
+	lamp.omni_range = 16.0
+	add_child(lamp)
+	var key := SpotLight3D.new()
+	key.light_color = Color(1.0, 0.85, 0.6)
+	key.light_energy = 8.0
+	key.spot_range = 12.0
+	key.spot_angle = 55.0
+	add_child(key)
+	key.position = Vector3(0, 2.8, 2.5)
+	key.look_at(Vector3(0, 1.0, -2.2), Vector3.UP)
+	var fill := DirectionalLight3D.new()
+	fill.rotation_degrees = Vector3(-40, 30, 0)
+	fill.light_color = Color(0.45, 0.55, 0.75)
+	fill.light_energy = 0.55
+	add_child(fill)
+	var env := WorldEnvironment.new()
+	var e := Environment.new()
+	e.background_mode = Environment.BG_COLOR
+	e.background_color = Color(0.08, 0.06, 0.05)
+	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	e.ambient_light_color = Color(0.35, 0.28, 0.22)
+	e.ambient_light_energy = 0.55
+	e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	env.environment = e
+	add_child(env)
+	var layer := CanvasLayer.new()
+	add_child(layer)
 	_hint = Label.new()
 	_hint.name = "Hint"
 	_hint.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	_hint.offset_top = -64
-	_hint.offset_bottom = -24
-	_hint.offset_left = -480
-	_hint.offset_right = 480
+	_hint.offset_top = -70
+	_hint.offset_bottom = -28
+	_hint.offset_left = -500
+	_hint.offset_right = 500
 	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_hint.add_theme_font_size_override("font_size", 18)
-	_hint.add_theme_color_override("font_color", Color(0.97, 0.94, 0.88, 0.9))
+	_hint.add_theme_color_override("font_color", Color(0.97, 0.94, 0.88))
 	_hint.add_theme_color_override("font_outline_color", Color(0.05, 0.05, 0.05))
 	_hint.add_theme_constant_override("outline_size", 5)
-	_hint.text = "Click a glowing machine to sit · Esc returns to lobby"
+	_hint.text = "WASD move · mouse look · click a cabinet to sit"
 	layer.add_child(_hint)
-	var back := TextureButton.new()
-	back.name = "BackBtn"
-	back.texture_normal = load("res://art/seasons/paloma/btn_house.png")
-	back.ignore_texture_size = true
-	back.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
-	back.custom_minimum_size = Vector2(56, 56)
-	back.position = Vector2(24, 24)
-	back.pressed.connect(func() -> void: Game.goto("lobby"))
-	layer.add_child(back)
+
+
+func _find_named(root: Node, name: String) -> Node3D:
+	var n := root.find_child(name, true, false)
+	return n as Node3D
+
+
+func _paint_room(room: Node) -> void:
+	var floor_m := StandardMaterial3D.new()
+	floor_m.albedo_color = Color(0.2, 0.11, 0.05)
+	floor_m.roughness = 0.6
+	var wall_m := StandardMaterial3D.new()
+	wall_m.albedo_color = Color(0.18, 0.1, 0.06)
+	wall_m.roughness = 0.7
+	var thatch_m := StandardMaterial3D.new()
+	thatch_m.albedo_color = Color(0.5, 0.34, 0.16)
+	thatch_m.roughness = 0.85
+	var ocean_m := StandardMaterial3D.new()
+	ocean_m.albedo_color = Color(0.03, 0.1, 0.18)
+	ocean_m.roughness = 0.2
+	for mi in room.find_children("*", "MeshInstance3D", true, false):
+		var mesh_i := mi as MeshInstance3D
+		var n: String = mesh_i.name.to_lower()
+		if n.find("floor") != -1:
+			mesh_i.material_override = floor_m
+		elif n.find("roof") != -1 or n.find("thatch") != -1:
+			mesh_i.material_override = thatch_m
+		elif n.find("ocean") != -1:
+			mesh_i.material_override = ocean_m
+		else:
+			mesh_i.material_override = wall_m
+
+
+func _paint_cabinet(cab: Node) -> void:
+	## Ensure imported meshes read as carved wood under Compatibility renderer.
+	var wood := StandardMaterial3D.new()
+	wood.albedo_color = Color(0.32, 0.16, 0.07)
+	wood.roughness = 0.42
+	var dark := StandardMaterial3D.new()
+	dark.albedo_color = Color(0.14, 0.07, 0.03)
+	dark.roughness = 0.5
+	var amber := StandardMaterial3D.new()
+	amber.albedo_color = Color(0.95, 0.55, 0.15)
+	amber.emission_enabled = true
+	amber.emission = Color(0.95, 0.45, 0.1)
+	amber.emission_energy_multiplier = 1.2
+	for mi in cab.find_children("*", "MeshInstance3D", true, false):
+		var mesh_i := mi as MeshInstance3D
+		var n: String = mesh_i.name.to_lower()
+		if n.find("eye") != -1:
+			mesh_i.material_override = amber
+		elif n.find("dark") != -1 or n.find("mouth") != -1 or n.find("brow") != -1 or n.find("belly") != -1 or n.find("side") != -1 or n.find("leg") != -1 or n.find("base") != -1:
+			mesh_i.material_override = dark
+		elif n.find("glass") != -1:
+			var g := StandardMaterial3D.new()
+			g.albedo_color = Color(0.04, 0.04, 0.05, 0.65)
+			g.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			g.roughness = 0.08
+			mesh_i.material_override = g
+		else:
+			mesh_i.material_override = wood
+
+
+func _update_hover() -> void:
+	_hover = -1
+	if _player == null:
+		return
+	var best_d := 2.4
+	for i in _cabinets.size():
+		var cab: Node3D = (_cabinets[i] as Dictionary)["root"]
+		var d: float = _player.global_position.distance_to(cab.global_position)
+		# Must roughly face the cabinet
+		var to_cab: Vector3 = (cab.global_position - _player.global_position).normalized()
+		var forward: Vector3 = -_player.global_transform.basis.z
+		var facing: float = forward.dot(to_cab)
+		if d < best_d and facing > 0.35:
+			best_d = d
+			_hover = i
+	if _hover >= 0:
+		_hint.text = "Click or Space — sit at machine"
+	else:
+		_hint.text = "WASD move · mouse look · approach a cabinet"
 
 
 func _sit(idx: int) -> void:
-	if _entering or idx < 0 or idx >= _machines.size():
+	if _entering:
 		return
 	if not PlaySafe.chance_staking_allowed():
 		Game.toast(Game.text("cool_off_on"))
 		return
 	_entering = true
-	_hint.text = ""
-	var mx: float = float((_machines[idx] as Dictionary)["x"])
+	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+	var cab: Node3D = (_cabinets[idx] as Dictionary)["root"]
+	var target: Vector3 = cab.global_position + cab.global_transform.basis.z * 1.15 + Vector3(0, 1.45, 0)
+	var look_at_pt: Vector3 = cab.global_position + Vector3(0, 1.35, 0)
 	var tw := create_tween()
-	tw.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	tw.tween_property(_cam, "position", Vector3(mx, 1.4, -0.35), 0.7)
-	tw.parallel().tween_property(_cam, "rotation", Vector3(0.04, 0.0, 0.0), 0.7)
+	tw.tween_property(_cam, "global_position", target, 0.65)
+	tw.parallel().tween_callback(func() -> void:
+		_cam.look_at(look_at_pt, Vector3.UP)
+	)
 	tw.tween_callback(func() -> void: Game.enter_chance_room("slot_palm"))

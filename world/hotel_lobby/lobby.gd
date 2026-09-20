@@ -1,163 +1,166 @@
 extends Node3D
-## Paloma House lobby — stand in the room, click the glowing hall to walk through.
+## 3D boutique lobby — walk to the glowing hall. No photo wallpaper.
 
-const LOBBY_TEX := "res://art/seasons/paloma/lobby_interior.png"
+const ROOM := "res://art/models/lobby_room.glb"
 
+var _player: CharacterBody3D
 var _cam: Camera3D
+var _hint: Label
+var _mara: Label
 var _yaw: float = 0.0
 var _pitch: float = 0.0
 var _entering: bool = false
-var _dragging: bool = false
-var _hint: Label
-var _mara: Label
-var _door_glow: MeshInstance3D
-var _hall_hotspot: Button
-var _shot_path: String = ""
-var _shot_frames: int = 0
+var _hall: Node3D
 
 
 func _ready() -> void:
 	_build()
-	_shot_path = OS.get_environment("PALM_SHOT")
-	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
-	set_process(true)
+	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	set_physics_process(true)
 	if not Save.first_run_complete:
 		_show_mara()
 
 
-func _process(_delta: float) -> void:
-	if _shot_path != "":
-		_shot_frames += 1
-		if _shot_frames == 18:
-			get_viewport().get_texture().get_image().save_png(_shot_path)
-			print("PALM_SHOT ", _shot_path)
-			get_tree().quit()
-			return
-	if _entering or _door_glow == null:
+func _exit_tree() -> void:
+	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+
+
+func _physics_process(_delta: float) -> void:
+	if _entering or _player == null:
 		return
-	var a: float = 0.4 + 0.3 * sin(Time.get_ticks_msec() / 380.0)
-	var m: StandardMaterial3D = _door_glow.material_override
-	if m:
-		m.albedo_color.a = a
-		m.emission_energy_multiplier = 1.2 + a * 1.5
+	var input := Vector2.ZERO
+	if Input.is_key_pressed(KEY_A) or Input.is_action_pressed("ui_left"):
+		input.x -= 1
+	if Input.is_key_pressed(KEY_D) or Input.is_action_pressed("ui_right"):
+		input.x += 1
+	if Input.is_key_pressed(KEY_W) or Input.is_action_pressed("ui_up"):
+		input.y -= 1
+	if Input.is_key_pressed(KEY_S) or Input.is_action_pressed("ui_down"):
+		input.y += 1
+	input = input.limit_length(1.0)
+	var basis := Basis.from_euler(Vector3(0, _yaw, 0))
+	var move := (-basis.z * -input.y + basis.x * input.x) * 3.4
+	_player.velocity = Vector3(move.x, 0, move.z)
+	_player.move_and_slide()
+	_update_hint()
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	if _entering:
 		return
-	if event is InputEventMouseButton:
-		var mb := event as InputEventMouseButton
-		if mb.button_index == MOUSE_BUTTON_RIGHT:
-			_dragging = mb.pressed
-		elif mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
-			# Click right side of screen = walk into hall
-			var vp := get_viewport().get_visible_rect().size
-			if mb.position.x > vp.x * 0.58:
-				_enter_hall()
-	if event is InputEventMouseMotion and _dragging:
+	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		var mm := event as InputEventMouseMotion
-		_yaw -= mm.relative.x * 0.003
-		_pitch -= mm.relative.y * 0.0025
-		_yaw = clampf(_yaw, -0.55, 0.55)
-		_pitch = clampf(_pitch, -0.25, 0.28)
-		_apply_look()
-	if event.is_action_pressed("walk") or event.is_action_pressed("ui_accept"):
-		_enter_hall()
+		_yaw -= mm.relative.x * 0.0025
+		_pitch -= mm.relative.y * 0.0020
+		_pitch = clampf(_pitch, -0.4, 0.4)
+		_cam.rotation = Vector3(_pitch, 0, 0)
+		_player.rotation.y = _yaw
+	if event.is_action_pressed("ui_accept") or event.is_action_pressed("walk"):
+		if _near_hall():
+			_enter_hall()
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		if _near_hall():
+			_enter_hall()
 	if event.is_action_pressed("ui_cancel"):
+		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 		Game.goto("pause")
 	if event is InputEventKey and event.pressed and event.keycode == KEY_G:
 		_garden()
+	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+		if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+			Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+		else:
+			Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
 
 func _build() -> void:
-	RenderingServer.set_default_clear_color(Color(0.08, 0.07, 0.06))
-	var plate := MeshInstance3D.new()
-	var pm := QuadMesh.new()
-	pm.size = Vector2(19.2, 10.8)
-	plate.mesh = pm
-	plate.position = Vector3(0, 1.55, -4.2)
-	var mat := StandardMaterial3D.new()
-	mat.albedo_texture = load(LOBBY_TEX)
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-	plate.material_override = mat
-	add_child(plate)
-	var floor := MeshInstance3D.new()
-	var fm := PlaneMesh.new()
-	fm.size = Vector2(12, 8)
-	floor.mesh = fm
-	var fm_mat := StandardMaterial3D.new()
-	fm_mat.albedo_color = Color(0.55, 0.42, 0.28)
-	fm_mat.roughness = 0.7
-	floor.material_override = fm_mat
-	add_child(floor)
-	# Glowing hall doorway (right side of the lobby plate)
-	_door_glow = MeshInstance3D.new()
-	var gm := QuadMesh.new()
-	gm.size = Vector2(3.6, 5.4)
-	_door_glow.mesh = gm
-	_door_glow.position = Vector3(5.4, 2.15, -4.0)
-	var gm_mat := StandardMaterial3D.new()
-	gm_mat.albedo_color = Color(1.0, 0.78, 0.45, 0.55)
-	gm_mat.emission_enabled = true
-	gm_mat.emission = Color(1.0, 0.72, 0.35)
-	gm_mat.emission_energy_multiplier = 2.4
-	gm_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	gm_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	gm_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	_door_glow.material_override = gm_mat
-	add_child(_door_glow)
-	var arrow := MeshInstance3D.new()
-	var am := PrismMesh.new()
-	am.size = Vector3(0.7, 0.1, 1.0)
-	arrow.mesh = am
-	arrow.position = Vector3(2.0, 0.08, 0.3)
-	arrow.rotation_degrees = Vector3(0, -55, 0)
-	var am_mat := StandardMaterial3D.new()
-	am_mat.albedo_color = Color(1.0, 0.75, 0.35)
-	am_mat.emission_enabled = true
-	am_mat.emission = Color(1.0, 0.7, 0.3)
-	am_mat.emission_energy_multiplier = 1.8
-	am_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	arrow.material_override = am_mat
-	add_child(arrow)
+	RenderingServer.set_default_clear_color(Color(0.55, 0.48, 0.4))
+	var room_ps: PackedScene = load(ROOM)
+	var room: Node3D = room_ps.instantiate()
+	room.name = "LobbyMesh"
+	add_child(room)
+	var floor_body := StaticBody3D.new()
+	var fs := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = Vector3(12, 0.2, 10)
+	fs.shape = box
+	floor_body.position = Vector3(0, -0.05, 0)
+	floor_body.add_child(fs)
+	add_child(floor_body)
+	_hall = room.find_child("HallPortal", true, false) as Node3D
+	# Hall trigger volume
+	var hall_area := Area3D.new()
+	hall_area.name = "HallArea"
+	var hs := CollisionShape3D.new()
+	var hbox := BoxShape3D.new()
+	hbox.size = Vector3(2.2, 2.4, 2.0)
+	hs.shape = hbox
+	hall_area.add_child(hs)
+	if _hall:
+		hall_area.global_position = _hall.global_position + Vector3(0, 1.2, 0)
+	else:
+		hall_area.position = Vector3(5.2, 1.2, 0)
+	add_child(hall_area)
+	# Soft hall glow
+	var glow := MeshInstance3D.new()
+	var gq := QuadMesh.new()
+	gq.size = Vector2(1.8, 2.6)
+	glow.mesh = gq
+	glow.position = hall_area.position + Vector3(-0.3, 0.2, 0)
+	glow.rotation_degrees = Vector3(0, 90, 0)
+	var gm := StandardMaterial3D.new()
+	gm.albedo_color = Color(1.0, 0.78, 0.4, 0.35)
+	gm.emission_enabled = true
+	gm.emission = Color(1.0, 0.7, 0.3)
+	gm.emission_energy_multiplier = 1.8
+	gm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	gm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	gm.cull_mode = BaseMaterial3D.CULL_DISABLED
+	glow.material_override = gm
+	glow.name = "HallGlow"
+	add_child(glow)
+	_player = CharacterBody3D.new()
+	_player.name = "Player"
+	var spawn := room.find_child("PlayerSpawn", true, false) as Node3D
+	_player.position = spawn.global_position if spawn else Vector3(0, 0.1, 2.2)
+	_player.position.y = 0.1
+	var pcol := CollisionShape3D.new()
+	var cap := CapsuleShape3D.new()
+	cap.radius = 0.28
+	cap.height = 1.5
+	pcol.shape = cap
+	pcol.position.y = 0.85
+	_player.add_child(pcol)
 	_cam = Camera3D.new()
-	_cam.fov = 58.0
-	_cam.position = Vector3(0.0, 1.62, 1.8)
+	_cam.fov = 70.0
+	_cam.position = Vector3(0, 1.55, 0)
 	_cam.current = true
-	add_child(_cam)
+	_player.add_child(_cam)
+	add_child(_player)
+	# Face the glowing hall (positive X)
+	_yaw = -PI * 0.5
+	_player.rotation.y = _yaw
 	var lamp := OmniLight3D.new()
-	lamp.position = Vector3(0, 2.8, 0)
-	lamp.light_color = Color(1.0, 0.86, 0.65)
-	lamp.light_energy = 2.4
-	lamp.omni_range = 14.0
+	lamp.position = Vector3(0, 2.5, 0)
+	lamp.light_color = Color(1.0, 0.9, 0.75)
+	lamp.light_energy = 3.2
+	lamp.omni_range = 12.0
 	add_child(lamp)
 	var layer := CanvasLayer.new()
-	layer.layer = 12
 	add_child(layer)
-	# Invisible clickable hall zone — right 40% of screen, no label text
-	_hall_hotspot = Button.new()
-	_hall_hotspot.name = "HallHotspot"
-	_hall_hotspot.set_anchors_preset(Control.PRESET_RIGHT_WIDE)
-	_hall_hotspot.offset_left = -720
-	_hall_hotspot.flat = true
-	_hall_hotspot.focus_mode = Control.FOCUS_NONE
-	_hall_hotspot.modulate = Color(1, 1, 1, 0.01)
-	_hall_hotspot.pressed.connect(_enter_hall)
-	layer.add_child(_hall_hotspot)
 	_hint = Label.new()
 	_hint.name = "Hint"
 	_hint.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	_hint.offset_top = -72
+	_hint.offset_top = -70
 	_hint.offset_bottom = -28
-	_hint.offset_left = -460
-	_hint.offset_right = 460
+	_hint.offset_left = -520
+	_hint.offset_right = 520
 	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_hint.add_theme_font_size_override("font_size", 18)
-	_hint.add_theme_color_override("font_color", Color(0.97, 0.94, 0.88, 0.9))
+	_hint.add_theme_color_override("font_color", Color(0.97, 0.94, 0.88))
 	_hint.add_theme_color_override("font_outline_color", Color(0.1, 0.1, 0.1))
-	_hint.add_theme_constant_override("outline_size", 4)
-	_hint.text = "Click the glowing hall to walk through · hold right-mouse to look"
+	_hint.add_theme_constant_override("outline_size", 5)
+	_hint.text = "WASD move · mouse look · walk into the glowing hall"
 	layer.add_child(_hint)
 	_mara = Label.new()
 	_mara.name = "MaraLine"
@@ -183,12 +186,19 @@ func _build() -> void:
 	garden.pressed.connect(_garden)
 	garden.tooltip_text = "Garden"
 	layer.add_child(garden)
-	_apply_look()
 
 
-func _apply_look() -> void:
-	if _cam:
-		_cam.rotation = Vector3(_pitch, _yaw, 0.0)
+func _near_hall() -> bool:
+	if _hall == null:
+		return _player.global_position.distance_to(Vector3(5.2, 0.1, 0)) < 2.2
+	return _player.global_position.distance_to(_hall.global_position) < 2.3
+
+
+func _update_hint() -> void:
+	if _near_hall():
+		_hint.text = "Click or Space — walk through to the lounge"
+	else:
+		_hint.text = "WASD move · mouse look · walk into the glowing hall"
 
 
 func _enter_hall() -> void:
@@ -198,13 +208,12 @@ func _enter_hall() -> void:
 		Game.toast(Game.text("wa_chance_block") if not RegionPolicy.chance_rooms_open() else Game.text("self_exclude_on"))
 		return
 	_entering = true
-	_hint.text = ""
+	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	var tw := create_tween()
-	tw.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	tw.tween_property(_cam, "position", Vector3(3.8, 1.62, -1.2), 1.0)
-	tw.parallel().tween_property(_cam, "rotation", Vector3(0.0, -0.55, 0.0), 1.0)
-	await tw.finished
-	Game.goto("casino_floor")
+	var target := _hall.global_position if _hall else Vector3(5.5, 1.55, 0)
+	target.y = 1.55
+	tw.tween_property(_cam, "global_position", target, 0.85)
+	tw.tween_callback(func() -> void: Game.goto("casino_floor"))
 
 
 func _show_mara() -> void:
@@ -219,4 +228,5 @@ func _show_mara() -> void:
 func _garden() -> void:
 	Save.first_run_complete = true
 	Save.write_disk()
+	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	Game.goto("island")
