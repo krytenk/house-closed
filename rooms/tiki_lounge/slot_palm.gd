@@ -1,160 +1,235 @@
 extends Node3D
-## First-person sit at a 3D tiki cabinet with real reel cylinders.
+## First-person sit at a purpose-built 3D cabinet face. Orientation is explicit.
 
-const CABINET := "res://art/models/tiki_cabinet.glb"
-const STRIP := "res://art/seasons/paloma/reel_strip.png"
 const SYM_ORDER := ["P", "C", "H", "S", "L", "W", "B"]
 
 var bet: int = 1
 var spinning: bool = false
 var last: Dictionary = {}
-var _cab: Node3D
-var _reels: Array = []  # MeshInstance3D cylinders
+var _cells: Array = []
 var _credits: Label
 var _result: Label
+var _bet_label: Label
 var _win_flash: ColorRect
+var _face: Node3D
 
 
 func _ready() -> void:
-	_build_cabinet()
+	_build_room()
+	_build_face()
 	_build_reels()
 	_build_hud()
 	Economy.enter_table_room()
 	_hud()
+	_scramble_once()
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 
 
-func _build_cabinet() -> void:
-	RenderingServer.set_default_clear_color(Color(0.04, 0.03, 0.025))
+func _mat(color: Color, rough: float = 0.42, emit: Color = Color(0, 0, 0, 0), emit_e: float = 0.0) -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.albedo_color = color
+	m.roughness = rough
+	if emit_e > 0.0:
+		m.emission_enabled = true
+		m.emission = emit
+		m.emission_energy_multiplier = emit_e
+	return m
+
+
+func _box(parent: Node, size: Vector3, pos: Vector3, mat: Material, name: String = "Box") -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	var mesh := BoxMesh.new()
+	mesh.size = size
+	mi.mesh = mesh
+	mi.position = pos
+	mi.material_override = mat
+	mi.name = name
+	parent.add_child(mi)
+	return mi
+
+
+func _cyl(parent: Node, r: float, h: float, pos: Vector3, mat: Material, name: String = "Cyl") -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	var mesh := CylinderMesh.new()
+	mesh.top_radius = r
+	mesh.bottom_radius = r
+	mesh.height = h
+	mesh.radial_segments = 24
+	mi.mesh = mesh
+	mi.position = pos
+	mi.material_override = mat
+	mi.name = name
+	parent.add_child(mi)
+	return mi
+
+
+func _sphere(parent: Node, r: float, pos: Vector3, mat: Material, name: String = "Sph") -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	var mesh := SphereMesh.new()
+	mesh.radius = r
+	mesh.height = r * 2.0
+	mi.mesh = mesh
+	mi.position = pos
+	mi.material_override = mat
+	mi.name = name
+	parent.add_child(mi)
+	return mi
+
+
+func _build_room() -> void:
+	RenderingServer.set_default_clear_color(Color(0.03, 0.025, 0.02))
 	var env := WorldEnvironment.new()
 	var e := Environment.new()
 	e.background_mode = Environment.BG_COLOR
-	e.background_color = Color(0.05, 0.04, 0.03)
+	e.background_color = Color(0.04, 0.03, 0.025)
 	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	e.ambient_light_color = Color(0.3, 0.22, 0.15)
-	e.ambient_light_energy = 0.5
+	e.ambient_light_color = Color(0.25, 0.18, 0.12)
+	e.ambient_light_energy = 0.4
+	e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	e.glow_enabled = true
+	e.glow_intensity = 0.4
 	env.environment = e
 	add_child(env)
-	var ps: PackedScene = load(CABINET)
-	_cab = ps.instantiate()
-	_cab.name = "Cabinet"
-	_cab.position = Vector3(0, 0, 0)
-	_cab.scale = Vector3(1.3, 1.3, 1.3)
-	_paint(_cab)
-	add_child(_cab)
-	var rw: Node3D = _cab.find_child("ReelWindow", true, false) as Node3D
-	var focus := Vector3(0, 1.25, -0.5)
-	if rw:
-		focus = rw.global_position
+	# Dim walls so the cabinet is the hero
+	_box(self, Vector3(6, 3.2, 0.2), Vector3(0, 1.5, -2.4), _mat(Color(0.08, 0.05, 0.03)), "BackWall")
+	_box(self, Vector3(0.2, 3.2, 4), Vector3(-2.6, 1.5, -0.5), _mat(Color(0.07, 0.04, 0.025)), "WallL")
+	_box(self, Vector3(0.2, 3.2, 4), Vector3(2.6, 1.5, -0.5), _mat(Color(0.07, 0.04, 0.025)), "WallR")
+	_box(self, Vector3(6, 0.15, 4), Vector3(0, 0, -0.5), _mat(Color(0.12, 0.07, 0.04), 0.6), "Floor")
+
+
+func _build_face() -> void:
+	_face = Node3D.new()
+	_face.name = "CabinetFace"
+	_face.position = Vector3(0, 0, -1.35)
+	add_child(_face)
+	var wood := _mat(Color(0.4, 0.2, 0.09), 0.36)
+	var dark := _mat(Color(0.12, 0.06, 0.03), 0.5)
+	var amber := _mat(Color(0.95, 0.55, 0.15), 0.3, Color(0.95, 0.45, 0.1), 2.2)
+	var cream := _mat(Color(0.9, 0.82, 0.65), 0.55)
+	# Body
+	_box(_face, Vector3(1.15, 1.7, 0.85), Vector3(0, 1.0, 0), wood, "Body")
+	_box(_face, Vector3(1.28, 0.2, 0.95), Vector3(0, 0.12, 0), dark, "Base")
+	_cyl(_face, 0.07, 0.25, Vector3(-0.4, 0.12, 0.28), dark, "LegFL")
+	_cyl(_face, 0.07, 0.25, Vector3(0.4, 0.12, 0.28), dark, "LegFR")
+	_cyl(_face, 0.07, 0.25, Vector3(-0.4, 0.12, -0.28), dark, "LegBL")
+	_cyl(_face, 0.07, 0.25, Vector3(0.4, 0.12, -0.28), dark, "LegBR")
+	# Head
+	_cyl(_face, 0.48, 0.58, Vector3(0, 2.05, 0), wood, "Head")
+	_box(_face, Vector3(0.78, 0.12, 0.22), Vector3(0, 2.22, 0.32), dark, "Brow")
+	_sphere(_face, 0.09, Vector3(-0.16, 2.08, 0.4), amber, "EyeL")
+	_sphere(_face, 0.09, Vector3(0.16, 2.08, 0.4), amber, "EyeR")
+	_box(_face, Vector3(0.38, 0.09, 0.14), Vector3(0, 1.9, 0.4), dark, "Mouth")
+	_box(_face, Vector3(0.18, 0.38, 0.22), Vector3(0, 2.45, 0), cream, "Crest")
+	# Reel frame (front)
+	_box(_face, Vector3(0.92, 0.12, 0.08), Vector3(0, 1.48, 0.44), dark, "FrameTop")
+	_box(_face, Vector3(0.92, 0.12, 0.08), Vector3(0, 0.72, 0.44), dark, "FrameBot")
+	_box(_face, Vector3(0.1, 0.64, 0.08), Vector3(-0.42, 1.1, 0.44), dark, "FrameL")
+	_box(_face, Vector3(0.1, 0.64, 0.08), Vector3(0.42, 1.1, 0.44), dark, "FrameR")
+	# Recess
+	_box(_face, Vector3(0.78, 0.58, 0.06), Vector3(0, 1.1, 0.38), _mat(Color(0.015, 0.015, 0.02)), "Recess")
+	# Belly plate
+	_box(_face, Vector3(0.75, 0.42, 0.06), Vector3(0, 0.42, 0.44), dark, "Belly")
+	_box(_face, Vector3(0.5, 0.08, 0.16), Vector3(0, 0.55, 0.5), _mat(Color(0.08, 0.08, 0.08), 0.3), "Buttons")
+
 	var cam := Camera3D.new()
 	cam.name = "SitCam"
-	cam.fov = 40.0
+	cam.fov = 38.0
+	cam.position = Vector3(0, 1.25, 0.55)
 	cam.current = true
 	add_child(cam)
-	# Stand back from the glass, eye-level with the window
-	cam.global_position = focus + Vector3(0, 0.05, 1.15)
-	cam.look_at(focus, Vector3.UP)
-	var lamp := OmniLight3D.new()
-	lamp.position = focus + Vector3(0.5, 0.6, 0.8)
-	lamp.light_color = Color(1.0, 0.8, 0.5)
-	lamp.light_energy = 5.0
-	lamp.omni_range = 7.0
-	add_child(lamp)
+	cam.look_at(Vector3(0, 1.35, -1.0), Vector3.UP)
+
+	var key := SpotLight3D.new()
+	key.light_color = Color(1.0, 0.82, 0.55)
+	key.light_energy = 12.0
+	key.spot_range = 7.0
+	key.spot_angle = 40.0
+	add_child(key)
+	key.position = Vector3(0.4, 1.9, 0.9)
+	key.look_at(Vector3(0, 1.4, -1.2), Vector3.UP)
+
 	var fill := OmniLight3D.new()
-	fill.position = focus + Vector3(-0.7, 0.3, 0.9)
-	fill.light_color = Color(0.45, 0.55, 0.75)
-	fill.light_energy = 1.6
-	fill.omni_range = 6.0
+	fill.position = Vector3(-0.7, 1.3, 0.6)
+	fill.light_color = Color(0.4, 0.5, 0.7)
+	fill.light_energy = 1.5
+	fill.omni_range = 5.0
 	add_child(fill)
 
-
-func _paint(cab: Node) -> void:
-	var wood := StandardMaterial3D.new()
-	wood.albedo_color = Color(0.34, 0.17, 0.07)
-	wood.roughness = 0.4
-	var dark := StandardMaterial3D.new()
-	dark.albedo_color = Color(0.12, 0.06, 0.03)
-	dark.roughness = 0.5
-	var amber := StandardMaterial3D.new()
-	amber.albedo_color = Color(0.95, 0.55, 0.15)
-	amber.emission_enabled = true
-	amber.emission = Color(0.95, 0.45, 0.1)
-	amber.emission_energy_multiplier = 1.4
-	for mi in cab.find_children("*", "MeshInstance3D", true, false):
-		var mesh_i := mi as MeshInstance3D
-		var n: String = mesh_i.name.to_lower()
-		if n.find("eye") != -1:
-			mesh_i.material_override = amber
-		elif n.find("glass") != -1:
-			var g := StandardMaterial3D.new()
-			g.albedo_color = Color(0.03, 0.03, 0.04, 0.35)
-			g.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-			g.roughness = 0.05
-			mesh_i.material_override = g
-		elif n.find("dark") != -1 or n.find("mouth") != -1 or n.find("brow") != -1 or n.find("belly") != -1 or n.find("side") != -1 or n.find("base") != -1 or n.find("leg") != -1 or n.find("frame") != -1:
-			mesh_i.material_override = dark
-		else:
-			mesh_i.material_override = wood
+	var rim := OmniLight3D.new()
+	rim.position = Vector3(0, 2.4, -1.6)
+	rim.light_color = Color(1.0, 0.5, 0.2)
+	rim.light_energy = 2.2
+	rim.omni_range = 4.0
+	add_child(rim)
 
 
 func _build_reels() -> void:
-	_reels.clear()
-	var anchor: Node3D = _cab.find_child("ReelWindow", true, false) as Node3D
-	if anchor == null:
-		anchor = Node3D.new()
-		anchor.name = "ReelWindow"
-		anchor.position = Vector3(0, 1.03, 0.42)
-		_cab.add_child(anchor)
-	var strip: Texture2D = load(STRIP)
-	for i in 5:
-		var mi := MeshInstance3D.new()
-		var quad := QuadMesh.new()
-		quad.size = Vector2(0.12, 0.48)
-		mi.mesh = quad
-		mi.position = Vector3(-0.26 + float(i) * 0.13, 0.0, 0.04)
-		var mat := StandardMaterial3D.new()
-		mat.albedo_texture = strip
-		mat.uv1_scale = Vector3(1, float(SYM_ORDER.size()), 1)
-		mat.uv1_offset = Vector3(0, float(i) * 0.13, 0)
-		mat.roughness = 0.35
-		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		mi.material_override = mat
-		anchor.add_child(mi)
-		_reels.append(mi)
+	_cells.clear()
+	var anchor := Node3D.new()
+	anchor.name = "ReelWindow"
+	anchor.position = Vector3(0, 1.1, -0.92)
+	add_child(anchor)
+	for col in 5:
+		var col_cells: Array = []
+		for row in 3:
+			var mi := MeshInstance3D.new()
+			var quad := QuadMesh.new()
+			quad.size = Vector2(0.13, 0.15)
+			mi.mesh = quad
+			mi.position = Vector3(-0.26 + float(col) * 0.13, 0.17 - float(row) * 0.16, 0.0)
+			var mat := StandardMaterial3D.new()
+			mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			mat.albedo_texture = _tex("L")
+			mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR
+			mi.material_override = mat
+			mi.name = "Cell_%d_%d" % [col, row]
+			anchor.add_child(mi)
+			col_cells.append(mi)
+		_cells.append(col_cells)
 
 
 func _build_hud() -> void:
 	var layer := CanvasLayer.new()
+	layer.name = "HUD"
 	add_child(layer)
 	var bar := Panel.new()
 	bar.name = "Bar"
 	bar.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	bar.offset_top = -100
+	bar.offset_top = -88
+	bar.offset_left = 180
+	bar.offset_right = -180
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.12, 0.07, 0.04, 0.9)
+	sb.bg_color = Color(0.1, 0.06, 0.03, 0.9)
 	sb.set_border_width_all(2)
-	sb.border_color = Color(0.7, 0.5, 0.28)
+	sb.border_color = Color(0.72, 0.5, 0.28)
+	sb.set_corner_radius_all(10)
 	bar.add_theme_stylebox_override("panel", sb)
 	layer.add_child(bar)
 	_credits = Label.new()
-	_credits.position = Vector2(36, 16)
-	_credits.size = Vector2(480, 32)
-	_credits.add_theme_font_size_override("font_size", 22)
+	_credits.position = Vector2(24, 12)
+	_credits.size = Vector2(360, 28)
+	_credits.add_theme_font_size_override("font_size", 20)
 	_credits.add_theme_color_override("font_color", Color(0.97, 0.94, 0.88))
 	bar.add_child(_credits)
+	_bet_label = Label.new()
+	_bet_label.position = Vector2(24, 42)
+	_bet_label.size = Vector2(200, 24)
+	_bet_label.add_theme_font_size_override("font_size", 16)
+	_bet_label.add_theme_color_override("font_color", Color(0.85, 0.75, 0.55))
+	bar.add_child(_bet_label)
 	_result = Label.new()
-	_result.position = Vector2(36, 50)
-	_result.size = Vector2(480, 28)
-	_result.add_theme_font_size_override("font_size", 18)
+	_result.position = Vector2(220, 42)
+	_result.size = Vector2(320, 24)
+	_result.add_theme_font_size_override("font_size", 16)
 	_result.add_theme_color_override("font_color", Color(0.95, 0.75, 0.4))
 	bar.add_child(_result)
-	_mk_btn(bar, Vector2(900, 22), Vector2(64, 48), "1", func() -> void: bet = 1; _hud())
-	_mk_btn(bar, Vector2(972, 22), Vector2(64, 48), "5", func() -> void: bet = 5; _hud())
-	_mk_btn(bar, Vector2(1044, 22), Vector2(64, 48), "25", func() -> void: bet = 25; _hud())
-	_mk_btn(bar, Vector2(1116, 22), Vector2(64, 48), "50", func() -> void: bet = 50; _hud())
-	var spin := _mk_btn(bar, Vector2(1220, 14), Vector2(200, 64), "SPIN", _spin, true)
+	_mk_btn(bar, Vector2(560, 18), Vector2(56, 48), "1", func() -> void: bet = 1; _hud())
+	_mk_btn(bar, Vector2(624, 18), Vector2(56, 48), "5", func() -> void: bet = 5; _hud())
+	_mk_btn(bar, Vector2(688, 18), Vector2(56, 48), "25", func() -> void: bet = 25; _hud())
+	_mk_btn(bar, Vector2(752, 18), Vector2(56, 48), "50", func() -> void: bet = 50; _hud())
+	var spin := _mk_btn(bar, Vector2(840, 10), Vector2(180, 64), "SPIN", _spin, true)
 	spin.name = "SpinBtn"
-	var stand := _mk_btn(bar, Vector2(1450, 22), Vector2(140, 48), "Stand", _stand)
+	var stand := _mk_btn(bar, Vector2(1040, 18), Vector2(120, 48), "Stand", _stand)
 	stand.name = "StandBtn"
 	_win_flash = ColorRect.new()
 	_win_flash.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -170,13 +245,13 @@ func _mk_btn(parent: Node, pos: Vector2, sz: Vector2, text: String, cb: Callable
 	b.text = text
 	b.pressed.connect(cb)
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.85, 0.55, 0.22) if primary else Color(0.28, 0.16, 0.08)
+	sb.bg_color = Color(0.88, 0.55, 0.2) if primary else Color(0.26, 0.15, 0.07)
 	sb.set_corner_radius_all(10 if primary else 8)
 	sb.set_border_width_all(2)
-	sb.border_color = Color(0.75, 0.55, 0.3)
+	sb.border_color = Color(0.78, 0.55, 0.28)
 	b.add_theme_stylebox_override("normal", sb)
 	var h := sb.duplicate()
-	h.bg_color = sb.bg_color.lightened(0.12)
+	h.bg_color = sb.bg_color.lightened(0.14)
 	b.add_theme_stylebox_override("hover", h)
 	b.add_theme_stylebox_override("pressed", h)
 	b.add_theme_font_size_override("font_size", 26 if primary else 18)
@@ -186,7 +261,27 @@ func _mk_btn(parent: Node, pos: Vector2, sz: Vector2, text: String, cb: Callable
 
 
 func _hud() -> void:
-	_credits.text = "Credits  %d     Bet  %d" % [Economy.hud_amount(), bet]
+	_credits.text = "Credits  %d" % Economy.hud_amount()
+	_bet_label.text = "Bet  %d" % bet
+
+
+func _tex(sym: String) -> Texture2D:
+	var path := "res://art/seasons/paloma/sym_%s.png" % sym
+	if ResourceLoader.exists(path):
+		return load(path)
+	return load("res://art/seasons/paloma/sym_L.png")
+
+
+func _set_cell(col: int, row: int, sym: String) -> void:
+	var mi: MeshInstance3D = _cells[col][row]
+	var mat: StandardMaterial3D = mi.material_override
+	mat.albedo_texture = _tex(sym)
+
+
+func _scramble_once() -> void:
+	for col in 5:
+		for row in 3:
+			_set_cell(col, row, SYM_ORDER[randi() % SYM_ORDER.size()])
 
 
 func _spin() -> void:
@@ -205,39 +300,28 @@ func _spin() -> void:
 	spinning = true
 	Game.play_sfx("click")
 	last = PalmReels.play(bet)
-	# Spin cylinders
-	for _i in 16:
-		for r in _reels:
-			var m: StandardMaterial3D = (r as MeshInstance3D).material_override
-			m.uv1_offset.y = fmod(m.uv1_offset.y + 0.17, 1.0)
-		await get_tree().create_timer(0.04).timeout
-	_apply_result_window(last.get("first", {}).get("window", []))
+	for _tick in 18:
+		_scramble_once()
+		await get_tree().create_timer(0.035).timeout
+	var window: Array = last.get("first", {}).get("window", [])
+	for col in 5:
+		if window.size() > col:
+			var col_syms: Array = window[col]
+			for row in mini(3, col_syms.size()):
+				_set_cell(col, row, str(col_syms[row]))
+		await get_tree().create_timer(0.05).timeout
 	var total: int = int(last.get("total", 0))
 	if total > 0:
 		Economy.add_shells(total)
-	_result.text = "+%d    net %d" % [total, int(last.get("net", 0))]
+	_result.text = "+%d   net %d" % [total, int(last.get("net", 0))]
 	if bool(last.get("celebrate", false)):
 		Game.play_sfx("win")
 		var tw := create_tween()
-		tw.tween_property(_win_flash, "color:a", 0.28, 0.1)
-		tw.tween_property(_win_flash, "color:a", 0.0, 0.35)
+		tw.tween_property(_win_flash, "color:a", 0.3, 0.1)
+		tw.tween_property(_win_flash, "color:a", 0.0, 0.4)
 	_hud()
 	Save.write_disk()
 	spinning = false
-
-
-func _apply_result_window(window: Array) -> void:
-	# window: 5 columns of 3 symbols — map center row to reel UV
-	if window.size() < 5:
-		return
-	for c in mini(5, _reels.size()):
-		var col: Array = window[c]
-		var sym: String = str(col[1]) if col.size() > 1 else str(col[0])
-		var idx: int = SYM_ORDER.find(sym)
-		if idx < 0:
-			idx = 0
-		var m: StandardMaterial3D = (_reels[c] as MeshInstance3D).material_override
-		m.uv1_offset.y = float(idx) / float(SYM_ORDER.size())
 
 
 func _stand() -> void:
