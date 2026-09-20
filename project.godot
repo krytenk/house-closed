@@ -1,11 +1,15 @@
 ; Engine configuration file.
-; Godot 4.7.2 — Palm Atoll. Spec: docs/PALM_ATOLL_BUILD_SPEC.md
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
 config_version=5
 
-[animation]
-compatibility/default_parent_skeleton_in_mesh_instance_3d=false
-
 [application]
+
 config/name="Palm Atoll"
 config/description="A resort you live on, with a casino you can visit. For fun only. You cannot win real money."
 config/version="1.0.0"
@@ -15,6 +19,7 @@ config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://icon.png"
 
 [autoload]
+
 ChanceRng="*res://systems/chance_rng.gd"
 AiRng="*res://systems/ai_rng.gd"
 Economy="*res://systems/economy.gd"
@@ -24,23 +29,31 @@ RegionPolicy="*res://systems/region_policy.gd"
 IapStub="*res://systems/iap_stub.gd"
 Save="*res://systems/save.gd"
 Game="*res://systems/game.gd"
+MCPScreenshot="*res://addons/godot_mcp/mcp_screenshot_service.gd"
+MCPInputService="*res://addons/godot_mcp/mcp_input_service.gd"
+MCPGameInspector="*res://addons/godot_mcp/mcp_game_inspector_service.gd"
 
 [debug]
+
 file_logging/enable_file_logging=true
 gdscript/warnings/unused_parameter=false
 
 [display]
+
 window/size/viewport_width=1920
 window/size/viewport_height=1080
 window/size/window_width_override=1920
 window/size/window_height_override=1080
 window/stretch/mode="canvas_items"
-window/stretch/aspect="keep"
-window/handheld/orientation=0
 window/size/min_width=960
 window/size/min_height=540
 
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/godot_mcp/plugin.cfg")
+
 [input]
+
 walk={
 "deadzone": 0.5,
 "events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":32,"physical_keycode":0,"key_label":0,"unicode":32,"location":0,"echo":false,"script":null)
@@ -52,15 +65,10 @@ pause_menu={
 ]
 }
 
-[input_devices]
-pointing/emulate_mouse_from_touch=true
-
-[internationalization]
-locale/fallback="en"
-
 [rendering]
+
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
-textures/vram_compression/import_etc2_astc=true
 textures/vram_compression/import_s3tc_bptc=true
+textures/vram_compression/import_etc2_astc=true
 environment/defaults/default_clear_color=Color(0.0431373, 0.431373, 0.435294, 1)

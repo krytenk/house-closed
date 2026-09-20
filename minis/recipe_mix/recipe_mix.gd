@@ -4,7 +4,7 @@ extends Control
 const STEPS := ["chop", "stir", "sear", "plate", "fold", "zest", "toast", "rest"]
 
 var sequence: Array = []
-var hidden: bool = false
+var card_hidden: bool = false
 var picks: Array = []
 var shown_at: float = 0.0
 
@@ -37,18 +37,18 @@ func _deal_card() -> void:
 	for i in 4:
 		sequence.append(STEPS[(start + i) % STEPS.size()])
 	picks = []
-	hidden = false
+	card_hidden = false
 	$Card.text = " → ".join(PackedStringArray(sequence))
 	$Result.text = ""
 	shown_at = Time.get_ticks_msec() / 1000.0
 	get_tree().create_timer(3.0).timeout.connect(func() -> void:
-		hidden = true
+		card_hidden = true
 		$Card.text = "····"
 	)
 
 
 func _pick(step: String) -> void:
-	if sequence.is_empty() or not hidden:
+	if sequence.is_empty() or not card_hidden:
 		return
 	picks.append(step)
 	if picks.size() >= 4:

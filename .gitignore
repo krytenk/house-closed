@@ -18,3 +18,4 @@ android/build/
 __pycache__/
 *.pyc
 rtp_search.log
+.mcp/

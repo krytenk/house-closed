@@ -126,8 +126,10 @@ func _build() -> void:
 	_style_btn(bar, Vector2(1060, 28), Vector2(72, 52), "5", func() -> void: bet = 5; _hud())
 	_style_btn(bar, Vector2(1140, 28), Vector2(72, 52), "25", func() -> void: bet = 25; _hud())
 	_style_btn(bar, Vector2(1220, 28), Vector2(72, 52), "50", func() -> void: bet = 50; _hud())
-	_style_btn(bar, Vector2(1340, 18), Vector2(220, 72), "SPIN", _spin, true)
-	_style_btn(bar, Vector2(1600, 28), Vector2(140, 52), "Stand", _stand)
+	var spin_btn := _style_btn(bar, Vector2(1340, 18), Vector2(220, 72), "SPIN", _spin, true)
+	spin_btn.name = "SpinBtn"
+	var stand_btn := _style_btn(bar, Vector2(1600, 28), Vector2(140, 52), "Stand", _stand)
+	stand_btn.name = "StandBtn"
 	var title := Label.new()
 	title.set_anchors_preset(Control.PRESET_CENTER_TOP)
 	title.offset_top = 8
@@ -143,7 +145,7 @@ func _build() -> void:
 	add_child(title)
 
 
-func _style_btn(parent: Node, pos: Vector2, sz: Vector2, text: String, cb: Callable, primary: bool = false) -> void:
+func _style_btn(parent: Node, pos: Vector2, sz: Vector2, text: String, cb: Callable, primary: bool = false) -> Button:
 	var b := Button.new()
 	b.position = pos
 	b.size = sz
@@ -167,6 +169,7 @@ func _style_btn(parent: Node, pos: Vector2, sz: Vector2, text: String, cb: Calla
 	b.add_theme_stylebox_override("pressed", sbh)
 	b.add_theme_color_override("font_color", Color(0.97, 0.94, 0.88))
 	parent.add_child(b)
+	return b
 
 
 func _hud() -> void:
