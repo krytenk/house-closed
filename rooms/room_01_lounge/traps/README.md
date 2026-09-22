@@ -27,7 +27,7 @@ Recorded 2026-09-21. `boards`, `setter`, `jammed`, `register`, `door`, and `save
 | [stool_note.md](stool_note.md) | `stool_note` | not checked | |
 | [boards.md](boards.md) | `boards` | ok | Sheet is behind the boards until Use pulls it out. |
 | [plinth.md](plinth.md) | `plinth` | open | Handler exists. No plinth in the room. Seen in code. |
-| [stool_empty.md](stool_empty.md) | `stool_empty` | open | Use volume is an empty point, not a stool. Seen in code. |
+| [stool_empty.md](stool_empty.md) | `stool_empty` | ok | `Stool_1` tips and gives nothing. Played 2026-09-22. |
 | [save.md](save.md) | (all) | ok | Quit and relaunch keeps the hour, including a coin in hand. |
 
 ## Critical path
@@ -40,5 +40,5 @@ The critical path has been played through to the lobby line. Still open: bird dr
 
 - Done: progress lines are larger. Bottom line is 32 px, the bar under it is 24 px. Wake, the end card, and the till pad are unchanged.
 - Done: the slip lies on the centre tray floor, local `(0, 0.512, 0.54)` on `Cabinet_1`, not floating above it.
-- Started: the keypad is on the front of the till. It does not answer from behind. The till is still a simple mesh. Baked detail is still polish.
+- Started: the keypad lies on the green top of the till, door side. It does not answer from the back. A worn inset and a drawer pull are on the till. Baked Blender dirt is still polish.
 - Started: wake blinks dark, light, dark, then the floor line. Reads of the notebook, house line, notice, and slip use a large spoken line. A full voice track is not recorded.

@@ -1,9 +1,10 @@
 # stool_empty
 
 - **id:** `stool_empty`
-- **Status:** open
-- **Object:** None. Invisible node `StoolEmpty`.
-- **Code:** `_dress` calls `_mark_at(Vector3(-2.4, 0.55, 2.6), "stool_empty", ...)`
+- **Status:** ok
+- **Played:** 2026-09-22. Use on `Stool_1` tipped it and said dust and a dead match. No item.
+- **Object:** `Stool_1`, the stool beside the notebook
+- **Code:** `_dress` marks `Stool_1`. `_wobble_stool` tips it and puts it back.
 
 ## Expected
 
@@ -11,18 +12,16 @@ A stool. Use wobbles it and gives nothing. Red herring. Fail look is the wobble,
 
 ## Now
 
-The four stools in the model are `Stool_0..3` at `x = -1.6, -0.55, 0.55, 1.6`, `y = 0`, `z = 2.85`. They have `Solid` collision and no `use_id`.
-
-The use volume is a 0.5 m box at `(-2.4, 0.55, 2.6)`, left of the leftmost stool and not parented to one. Looking at a real stool hits `Solid` and gets no hint. The hint "It wobbles. Nothing." only appears on that empty box.
+`Stool_1` (`x = -0.55`, beside the notebook) carries the use. Use tips it a few degrees and returns it. The line is still dust and a dead match. No item.
 
 ## Errors
 
-### open — the red herring is not a stool
+### fixed — the wobble was an empty box
 
-Seen in code, not played. The trap cannot be reviewed on the object it names.
+Seen in play. `Stool_1` tips and settles. The other three stools are still only collision.
 
 ## Check
 
-- [ ] Use is on a visible stool, and that stool moves or reads as a wobble
-- [ ] The other stools do not also pretend to be this trap unless they are marked the same way
-- [ ] Use grants no item and no flag that the door needs
+- [x] Use is on a visible stool, and that stool moves
+- [x] The other stools are not this trap
+- [x] Use grants no item and no flag that the door needs

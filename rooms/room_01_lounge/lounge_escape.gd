@@ -410,6 +410,37 @@ func _build_keypad(reg: Node3D) -> void:
 	_code_label.position = Vector3(0.0, 0.1, -0.072)
 	_code_label.modulate = Color(0.15, 0.2, 0.12)
 	reg.add_child(_code_label)
+	_dress_till(reg)
+
+
+func _dress_till(reg: Node3D) -> void:
+	var inset := MeshInstance3D.new()
+	var inset_mesh := BoxMesh.new()
+	inset_mesh.size = Vector3(0.12, 0.003, 0.1)
+	inset.mesh = inset_mesh
+	inset.position = Vector3(0.0, 0.062, 0.015)
+	inset.material_override = CabinetBuilderScript.mat(Color(0.08, 0.07, 0.05), 0.8)
+	inset.name = "TillInset"
+	reg.add_child(inset)
+	var pull := MeshInstance3D.new()
+	var pull_mesh := BoxMesh.new()
+	pull_mesh.size = Vector3(0.07, 0.012, 0.012)
+	pull.mesh = pull_mesh
+	pull.position = Vector3(0.0, -0.02, 0.09)
+	pull.material_override = CabinetBuilderScript.mat(Color(0.72, 0.58, 0.28), 0.35, Color(0.4, 0.28, 0.08), 0.15)
+	pull.name = "DrawerPull"
+	reg.add_child(pull)
+
+
+func _wobble_stool() -> void:
+	_say("Dust and a dead match.")
+	var stool := _named("Stool_1") as Node3D
+	if stool == null:
+		return
+	var tw := create_tween()
+	tw.tween_property(stool, "rotation_degrees:z", 7.0, 0.12)
+	tw.tween_property(stool, "rotation_degrees:z", -5.0, 0.1)
+	tw.tween_property(stool, "rotation_degrees:z", 0.0, 0.16)
 
 
 func _till_key(pad: Node3D, digit: int, at: Vector3) -> void:
@@ -490,7 +521,9 @@ func _dress() -> void:
 		_mark(_notebook_mesh, "stool_note", Vector3(0.28, 0.16, 0.36), Vector3.ZERO)
 	else:
 		_notebook_on_floor()
-	_mark_at(Vector3(-2.4, 0.55, 2.6), "stool_empty", Vector3(0.5, 0.8, 0.5), "StoolEmpty")
+	var wobble := _named("Stool_1") as Node3D
+	if wobble:
+		_mark(wobble, "stool_empty", Vector3(0.46, 0.7, 0.46), Vector3(0, 0.42, -0.12))
 
 
 func _paper_the_walls() -> void:
@@ -1195,7 +1228,7 @@ func _use() -> void:
 				_narrate("Dawn count is not luck. Set the house line. Feed the till after the window pays.")
 				_persist()
 		"stool_empty":
-			_say("Dust and a dead match.")
+			_wobble_stool()
 		"house_line":
 			var first_read := not bool(_flags["wallpaper"])
 			_flags["wallpaper"] = true
