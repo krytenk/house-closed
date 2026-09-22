@@ -2,7 +2,7 @@
 
 Single source of truth for this repo’s **current product**.
 
-Working title: **House Closed**. The guest is locked inside shuttered Paloma House, one room at a time. Each room is about an hour. A new Grok session builds **only the next sealed room**.
+Working title: **House Closed**. The guest is locked inside shuttered Paloma House, one room at a time. The first room is a short waking-up episode. Each later room is harder and longer than the one before it. A new Grok session builds **only the next sealed room**.
 
 Palm Atoll the luxury casino (`docs/PALM_ATOLL_BUILD_SPEC.md`) is **archive**. Do not resume Shells, Daylight SKUs, IAP, or ChanceRng paytables here.
 
@@ -50,6 +50,18 @@ From the old hotel plan, looking from the porch:
 | `room_07` | `rooms/room_07_suite/` | Player suite / bungalow | Plan only |
 
 Exit of room N names room N+1 and **does not build it**.
+
+## How long a room is
+
+Length is a first visit by someone who does not know the chain. A person who already knows the solution should be clearly shorter. Do not fill time by hiding the use spot or by a fake timer.
+
+| Room | First visit | Knowing the chain | Job |
+|---|---|---|---|
+| 01 Lounge | 15–25 min | about 10 min | Wake up. Learn the house. One code, one key. |
+| 02 Lobby | about 30 min | about 12 min | Two clues make one code. A false cell. A false key. |
+| 03–07 | Longer than the room before | Shorter than that room’s first visit | Harder each time. More false doors. More steps. |
+
+Room 02’s half hour is designed in `rooms/room_02_lobby/ROOM.md`. Do not stretch Room 01 to an hour. Polish does not add locks.
 
 ---
 
