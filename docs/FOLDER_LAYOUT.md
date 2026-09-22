@@ -7,6 +7,7 @@ res://
     SCENE_PIPELINE.md
     INTERACTABLES.md
     ASSETS.md
+    ATMOSPHERE.md            ← sound and dread, after polish
     FOLDER_LAYOUT.md         ← this file
     ESCAPE_SERIES.md         ← short contract; points at HOUSE_CLOSED
     PALM_ATOLL_BUILD_SPEC.md ← archive only

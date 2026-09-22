@@ -1,7 +1,8 @@
 # register
 
 - **id:** `register`
-- **Status:** open
+- **Status:** ok
+- **Played:** 2026-09-21. Screen stays dark until the fuse. `419` does nothing. `418` gives the house key.
 - **Object:** `Register` on the bar, `(0.85, 1.12, 3.55)` in the lounge model. Screen and drawer are separate meshes.
 - **Code:** `_build_register`, `_use_register`, `_pad_digit`, `_do_jackpot`
 
@@ -11,21 +12,21 @@ Dark screen. After the window pays, put the fuse in, then enter `418`. Opens the
 
 ## Now
 
-`_use_register` waits for `jackpot`, then takes a fuse if `fuse_in` is false, then opens the pad. `418` sets `code_ok` and `has_key` and adds `key`. The pad has digits and Close. This path has not been played. It is downstream of [setter.md](setter.md) and [lantern.md](lantern.md).
+The pay line says the till clicks. The green light and the screen stay off until the fuse is in. Then `_light_the_screen` turns the screen green and opens the pad.
+
+Polish, from play: the pad is a panel in the middle of the screen, so it can be used from behind the till. Put the keypad on the front of the till, make the till more detailed, and refuse the pad from the back. Not done.
 
 ## Errors
 
-### open — till light and the dark-screen line disagree
+### fixed — the till glowed while the line said the screen was dark
 
-`ROOM.md` says the jackpot opens the till light, and also that the register stays a dark screen until the fuse is in. `_do_jackpot` sets `_register_light` to energy 0.8 (green) immediately. The hint for `register` after the jackpot and before the fuse is still "Screen dark — something pops in the roof."
-
-Seen in code, not played. Decide which look is true before calling this trap checked: light on at the pay, or light on only after the fuse.
+The light now waits for the fuse. 2026-09-21 play: before the pay, use said the till is dead. After the pay, with no fuse, the light energy was 0 and the line was the dark-screen line. The fuse made the screen green. `419` left the pad open and gave no key. `418` closed it and put a house key in the bar.
 
 ## Check
 
-- [ ] Before the jackpot, use says the till is dead and the pad does not open
-- [ ] After the jackpot, without a fuse, use does not open the pad
-- [ ] With a fuse, one use inserts it and the screen is visibly on
-- [ ] Wrong digits do not give the key
-- [ ] `418` gives one house key and closes the pad
-- [ ] A second use says the drawer is empty
+- [x] Before the jackpot, use says the till is dead and the pad does not open
+- [x] After the jackpot, without a fuse, use does not open the pad
+- [x] With a fuse, one use inserts it and the screen is visibly on
+- [x] Wrong digits do not give the key
+- [x] `418` gives one house key and closes the pad
+- [x] Looking at it after that says the drawer is empty

@@ -1,8 +1,11 @@
-# Palm Atoll
+# House Closed (this repo)
 
-Single source of truth: `docs/PALM_ATOLL_BUILD_SPEC.md` (v1.1 LOCKED).
-Do not invent. Do not stub a MUST and call it done.
-If two comments disagree, keep the stricter anti-predatory rule.
+Current product: first-person locked rooms in Paloma House.
+SSoT: `docs/HOUSE_CLOSED.md`.
+Then pipeline / interactables / assets / traps. Then **only** the next `rooms/room_NN_*/ROOM.md`.
+Palm Atoll casino (`docs/PALM_ATOLL_BUILD_SPEC.md`) is archive — do not resume it here.
+
+Still: no cash-out, no real-money, no ChanceRng on a puzzle, no children as characters.
 
 ## Product laws (fail the build if broken)
 

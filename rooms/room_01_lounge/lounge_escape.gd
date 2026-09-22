@@ -47,6 +47,14 @@ var _bird_spin: Node3D
 var _turning: bool = false
 var _paper_flap: Node3D
 var _register_light: OmniLight3D
+var _lamp: OmniLight3D
+var _fill: DirectionalLight3D
+var _env: Environment
+var _blink: ColorRect
+var _narration: Label
+var _code_label: Label3D
+var _bed: AudioStreamPlayer
+var _bed_pending: bool = false
 var _slip: Node3D
 var _notebook_mesh: Node3D
 var _notice: Node3D
@@ -62,8 +70,13 @@ func _ready() -> void:
 	_build_door()
 	_build_register()
 	_dress()
+	_age_the_house()
 	_build_hud()
-	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	_restore_progress()
+	if bool(_flags["cleared"]):
+		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+	else:
+		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 	set_physics_process(true)
 	_wake()
 
@@ -73,7 +86,11 @@ func _exit_tree() -> void:
 
 
 func _process(delta: float) -> void:
-	if _flicker:
+	if _bed_pending and _bed and not _bed.playing:
+		_bed.play()
+		if _bed.playing:
+			_bed_pending = false
+	if _flicker and not bool(_flags["fuse"]):
 		_flicker.light_energy = 1.2 + sin(Time.get_ticks_msec() * 0.012) * 0.7 + randf() * 0.15
 	if _wake_label and _wake_label.visible:
 		_wake_label.modulate.a = maxf(0.0, _wake_label.modulate.a - delta * 0.18)
@@ -165,10 +182,11 @@ func _wake() -> void:
 	_pitch = 0.08
 	_player.rotation.y = _yaw
 	_cam.rotation = Vector3(_pitch, 0, 0)
-	_wake_label.text = "You wake on the floor of a closed house."
-	_wake_label.visible = true
-	_wake_label.modulate.a = 1.0
-	_say("Something on that machine is loose.")
+	_wake_label.visible = false
+	if bool(_flags["cleared"]):
+		_start_bed()
+		return
+	_blink_awake()
 
 
 func _build_room() -> void:
@@ -190,12 +208,13 @@ func _build_room() -> void:
 	floor_body.position = Vector3(0, -0.05, 0)
 	floor_body.add_child(floor_shape)
 	add_child(floor_body)
-	var lamp := OmniLight3D.new()
-	lamp.position = Vector3(0, 2.4, 0.2)
-	lamp.light_color = Color(1.0, 0.62, 0.35)
-	lamp.light_energy = 2.2
-	lamp.omni_range = 14.0
-	add_child(lamp)
+	_lamp = OmniLight3D.new()
+	_lamp.name = "CeilingLamp"
+	_lamp.position = Vector3(0, 2.4, 0.2)
+	_lamp.light_color = Color(1.0, 0.55, 0.32)
+	_lamp.light_energy = 0.85
+	_lamp.omni_range = 11.0
+	add_child(_lamp)
 	_flicker = OmniLight3D.new()
 	_flicker.name = "FlickerLantern"
 	var lantern: Node3D = _named("LanternFuse")
@@ -210,18 +229,19 @@ func _build_room() -> void:
 		_mark(_flicker, "lantern", Vector3(0.3, 0.4, 0.3), Vector3.ZERO)
 	_board_the_window()
 	_collide_room()
-	var fill := DirectionalLight3D.new()
-	fill.rotation_degrees = Vector3(-50, 30, 0)
-	fill.light_color = Color(1.0, 0.82, 0.58)
-	fill.light_energy = 0.35
-	add_child(fill)
+	_fill = DirectionalLight3D.new()
+	_fill.rotation_degrees = Vector3(-50, 30, 0)
+	_fill.light_color = Color(0.85, 0.68, 0.48)
+	_fill.light_energy = 0.18
+	add_child(_fill)
 	var env := WorldEnvironment.new()
 	var e := Environment.new()
 	e.background_mode = Environment.BG_COLOR
 	e.background_color = Color(0.03, 0.025, 0.02)
 	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	e.ambient_light_color = Color(0.22, 0.16, 0.12)
-	e.ambient_light_energy = 0.55
+	e.ambient_light_energy = 0.32
+	_env = e
 	e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	e.fog_enabled = true
 	e.fog_light_color = Color(0.08, 0.06, 0.04)
@@ -295,7 +315,8 @@ func _build_cabinets() -> void:
 			tag.modulate = Color(0.15, 0.08, 0.04)
 			cab.add_child(tag)
 		elif i == 1:
-			_mark(cab, "setter", Vector3(1.2, 2.2, 1.0), Vector3(0, 1.1, 0.4))
+			# Tray only. The reel window sits above this and must stay clickable.
+			_mark(cab, "setter", Vector3(0.76, 0.32, 0.40), Vector3(0, 0.52, 0.68))
 			_wire_reels(cab)
 		else:
 			_mark(cab, "jammed", Vector3(1.2, 2.2, 1.0), Vector3(0, 1.1, 0.4))
@@ -310,7 +331,8 @@ func _wire_reels(cab: Node3D) -> void:
 		if cell == null:
 			continue
 		_set_reel_tex(cell, "S")
-		_mark(cell, "reel_%d" % col, Vector3(0.14, 0.17, 0.08), Vector3.ZERO)
+		# In front of BodyCol (front face at local z 0.475). The cell itself is behind it.
+		_mark(cell, "reel_%d" % col, Vector3(0.16, 0.18, 0.08), Vector3(0, 0, 0.16))
 
 
 func _build_door() -> void:
@@ -338,12 +360,16 @@ func _build_register() -> void:
 	_register_light.omni_range = 1.2
 	_register_light.position = Vector3(0, 0.12, 0.08)
 	reg.add_child(_register_light)
-	_mark(reg, "register", Vector3(0.5, 0.5, 0.45), Vector3.ZERO)
+	# Body only, below the top, so the keypad on the green top gets the ray.
+	_mark(reg, "register", Vector3(0.24, 0.1, 0.16), Vector3.ZERO)
+	_build_keypad(reg)
 	_slip = Node3D.new()
 	_slip.name = "Slip"
 	_slip.visible = false
-	_slip.position = Vector3(-0.4, 1.05, -1.45)
-	add_child(_slip)
+	# On the centre machine's tray floor. TrayFloor top is y 0.505.
+	_slip.position = Vector3(0.0, 0.512, 0.54)
+	var slip_home: Node = _cabs[1] if _cabs.size() > 1 else self
+	slip_home.add_child(_slip)
 	CabinetBuilderScript.box(_slip, Vector3(0.18, 0.002, 0.1), Vector3.ZERO, CabinetBuilderScript.mat(Color(0.9, 0.86, 0.7)), "Paper")
 	var sl := Label3D.new()
 	sl.text = "4  1  8"
@@ -354,6 +380,102 @@ func _build_register() -> void:
 	sl.modulate = Color(0.15, 0.1, 0.08)
 	_slip.add_child(sl)
 	_mark(_slip, "slip", Vector3(0.22, 0.1, 0.14), Vector3.ZERO)
+
+
+func _build_keypad(reg: Node3D) -> void:
+	var pad := Node3D.new()
+	pad.name = "TillKeypad"
+	# Flat on the green top. +Z is the side that faces the hall door.
+	pad.position = Vector3(0.0, 0.066, 0.015)
+	reg.add_child(pad)
+	var plate := MeshInstance3D.new()
+	var plate_mesh := BoxMesh.new()
+	plate_mesh.size = Vector3(0.1, 0.004, 0.09)
+	plate.mesh = plate_mesh
+	plate.position = Vector3(0.0, 0.0, 0.008)
+	plate.material_override = CabinetBuilderScript.mat(Color(0.22, 0.18, 0.14), 0.62)
+	pad.add_child(plate)
+	var n := 1
+	for r in 3:
+		for c in 3:
+			# Row 1 is toward the screen. 0 is toward the door.
+			_till_key(pad, n, Vector3(-0.028 + float(c) * 0.028, 0.005, -0.016 + float(r) * 0.02))
+			n += 1
+	_till_key(pad, 0, Vector3(0.0, 0.005, -0.016 + 3.0 * 0.02))
+	_code_label = Label3D.new()
+	_code_label.name = "TillCode"
+	_code_label.text = "---"
+	_code_label.font_size = 64
+	_code_label.pixel_size = 0.00055
+	_code_label.position = Vector3(0.0, 0.1, -0.072)
+	_code_label.modulate = Color(0.15, 0.2, 0.12)
+	reg.add_child(_code_label)
+
+
+func _till_key(pad: Node3D, digit: int, at: Vector3) -> void:
+	var key := MeshInstance3D.new()
+	var mesh := BoxMesh.new()
+	mesh.size = Vector3(0.022, 0.006, 0.016)
+	key.mesh = mesh
+	key.position = at
+	key.material_override = CabinetBuilderScript.mat(Color(0.62, 0.54, 0.34), 0.45)
+	key.name = "Key_%d" % digit
+	pad.add_child(key)
+	var glyph := Label3D.new()
+	glyph.text = str(digit)
+	glyph.font_size = 48
+	glyph.pixel_size = 0.00032
+	glyph.position = Vector3(0, 0.005, 0)
+	glyph.rotation_degrees = Vector3(-90, 0, 0)
+	glyph.modulate = Color(0.12, 0.08, 0.04)
+	key.add_child(glyph)
+	_mark(key, "digit_%d" % digit, Vector3(0.024, 0.02, 0.018), Vector3(0, 0.012, 0))
+	var key_body := key.get_node("Use_digit_%d" % digit) as StaticBody3D
+	key_body.collision_layer = 2
+	key_body.collision_mask = 0
+
+
+func _at_till_front() -> bool:
+	var reg := _named("Register") as Node3D
+	if reg == null or _player == null:
+		return false
+	# The usable side faces the hall door. The other side is the back.
+	var front := reg.global_transform.basis.z
+	var to_player := _player.global_position - reg.global_position
+	to_player.y = 0.0
+	if to_player.length() < 0.05:
+		return false
+	return front.dot(to_player.normalized()) > 0.05
+
+
+func _age_the_house() -> void:
+	if _lounge:
+		for name in ["Bar", "Floor", "BarTop"]:
+			var mi := _named(name) as MeshInstance3D
+			_dull_mesh(mi, 0.18)
+		for i in 4:
+			_dull_mesh(_named("Stool_%d" % i) as MeshInstance3D, 0.22)
+		for post in _lounge.find_children("Post_*", "MeshInstance3D", true, false):
+			_dull_mesh(post as MeshInstance3D, 0.2)
+	for cab in _cabs:
+		if cab is Node3D:
+			for mi in (cab as Node3D).find_children("*", "MeshInstance3D", true, false):
+				var mesh_node := mi as MeshInstance3D
+				if str(mesh_node.name).begins_with("Cell_"):
+					continue
+				_dull_mesh(mesh_node, 0.28)
+
+
+func _dull_mesh(mi: MeshInstance3D, amount: float) -> void:
+	if mi == null:
+		return
+	var src := mi.get_active_material(0)
+	if src is not StandardMaterial3D:
+		return
+	var m := (src as StandardMaterial3D).duplicate() as StandardMaterial3D
+	m.albedo_color = m.albedo_color.darkened(amount)
+	m.roughness = clampf(m.roughness + 0.18, 0.0, 1.0)
+	mi.set_surface_override_material(0, m)
 
 
 func _dress() -> void:
@@ -476,22 +598,23 @@ func _build_hud() -> void:
 	layer.add_child(cross)
 	_hint = Label.new()
 	_hint.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	_hint.offset_top = -70
-	_hint.offset_bottom = -28
-	_hint.offset_left = -520
-	_hint.offset_right = 520
+	_hint.offset_top = -132
+	_hint.offset_bottom = -48
+	_hint.offset_left = -640
+	_hint.offset_right = 640
 	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_hint.add_theme_font_size_override("font_size", 18)
+	_hint.autowrap_mode = TextServer.AUTOWRAP_WORD
+	_hint.add_theme_font_size_override("font_size", 32)
 	_hint.add_theme_color_override("font_color", Color(0.92, 0.88, 0.8))
 	_hint.add_theme_color_override("font_outline_color", Color(0.05, 0.04, 0.03))
 	_hint.add_theme_constant_override("outline_size", 5)
 	layer.add_child(_hint)
 	_inv_label = Label.new()
 	_inv_label.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	_inv_label.offset_top = -28
-	_inv_label.offset_bottom = -4
+	_inv_label.offset_top = -44
+	_inv_label.offset_bottom = -6
 	_inv_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_inv_label.add_theme_font_size_override("font_size", 16)
+	_inv_label.add_theme_font_size_override("font_size", 24)
 	_inv_label.add_theme_color_override("font_color", Color(0.95, 0.88, 0.7))
 	_inv_label.add_theme_constant_override("outline_size", 5)
 	_inv_label.add_theme_color_override("font_outline_color", Color(0.05, 0.04, 0.03))
@@ -538,6 +661,116 @@ func _build_hud() -> void:
 	done.add_theme_color_override("font_color", Color(0.92, 0.86, 0.74))
 	done.text = "Room 01 clear.\nThe lobby is still sealed."
 	_complete.add_child(done)
+	_blink = ColorRect.new()
+	_blink.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_blink.color = Color(0, 0, 0, 0)
+	_blink.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_blink.visible = false
+	layer.add_child(_blink)
+	_narration = Label.new()
+	_narration.visible = false
+	_narration.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_narration.set_anchors_preset(Control.PRESET_CENTER)
+	_narration.offset_left = -560
+	_narration.offset_right = 560
+	_narration.offset_top = -80
+	_narration.offset_bottom = 80
+	_narration.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_narration.autowrap_mode = TextServer.AUTOWRAP_WORD
+	_narration.add_theme_font_size_override("font_size", 36)
+	_narration.add_theme_color_override("font_color", Color(0.94, 0.9, 0.82))
+	_narration.add_theme_constant_override("outline_size", 8)
+	_narration.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+	layer.add_child(_narration)
+
+
+func _blink_awake() -> void:
+	_busy = true
+	_blink.visible = true
+	_blink.color.a = 1.0
+	_narrate("Dark.")
+	var tw := create_tween()
+	tw.tween_interval(1.8)
+	tw.tween_property(_blink, "color:a", 0.42, 1.6)
+	tw.tween_callback(func() -> void: _narrate("A slit of light. You do not know the room."))
+	tw.tween_interval(1.8)
+	tw.tween_property(_blink, "color:a", 1.0, 1.3)
+	tw.tween_callback(func() -> void: _narrate("Dark again."))
+	tw.tween_interval(1.6)
+	tw.tween_property(_blink, "color:a", 0.0, 2.4)
+	tw.tween_callback(func() -> void:
+		_blink.visible = false
+		_busy = false
+		_narrate("You are on the floor. The house is closed.")
+		_say("Something on that machine is loose.")
+		_start_bed()
+	)
+	tw.tween_interval(4.2)
+	tw.tween_callback(func() -> void:
+		if _narration:
+			_narration.visible = false
+	)
+
+
+func _narrate(line: String) -> void:
+	if _narration == null:
+		return
+	_narration.text = line
+	_narration.visible = true
+	_narration.modulate.a = 1.0
+
+
+func _load_wav(path: String, looped: bool) -> AudioStreamWAV:
+	var bytes := FileAccess.get_file_as_bytes(path)
+	if bytes.size() < 80:
+		return null
+	var stream := AudioStreamWAV.new()
+	stream.format = AudioStreamWAV.FORMAT_16_BITS
+	stream.mix_rate = 44100
+	stream.stereo = false
+	stream.data = bytes.slice(78)
+	if looped:
+		stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
+		stream.loop_begin = 0
+		stream.loop_end = int(stream.data.size() / 2)
+	return stream
+
+
+func _one_shot(path: String, db: float) -> void:
+	var stream := _load_wav(path, false)
+	if stream == null:
+		return
+	var player := AudioStreamPlayer.new()
+	player.stream = stream
+	player.volume_db = db
+	player.finished.connect(player.queue_free)
+	add_child(player)
+	player.play()
+
+
+func _dim_for_fuse() -> void:
+	if _lamp:
+		_lamp.light_energy = 0.18
+	if _fill:
+		_fill.light_energy = 0.04
+	if _env:
+		_env.ambient_light_energy = 0.1
+	if _flicker:
+		_flicker.light_energy = 0.0
+
+
+func _start_bed() -> void:
+	if _bed != null and _bed.playing:
+		return
+	var stream := _load_wav("res://audio/lounge/bed.wav", true)
+	if stream == null:
+		return
+	_bed = AudioStreamPlayer.new()
+	_bed.name = "RoomBed"
+	_bed.stream = stream
+	_bed.volume_db = -18.0
+	add_child(_bed)
+	_bed_pending = true
 
 
 func _build_pad(layer: CanvasLayer) -> void:
@@ -591,16 +824,39 @@ func _pad_digit(d: int) -> void:
 	if _pad_value.length() >= 3:
 		_pad_value = ""
 	_pad_value += str(d)
-	_pad_display.text = _pad_value
+	_show_code(_pad_value)
 	if _pad_value == "418":
 		_flags["code_ok"] = true
 		if not _flags["has_key"]:
 			_flags["has_key"] = true
 			EscapeInventory.add_item("key", "House key")
 			_say("The drawer kicks. A house key.")
+			_narrate("The drawer kicks. A house key.")
 		_pad.visible = false
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 		_persist()
+		return
+	if _pad_value.length() == 3:
+		var wrong := _pad_value
+		_say("That is not the dawn count.")
+		_narrate("That is not the dawn count.")
+		var tw := create_tween()
+		tw.tween_interval(1.1)
+		tw.tween_callback(func() -> void:
+			if _pad_value != wrong or _flags["has_key"]:
+				return
+			_pad_value = ""
+			_show_code("---")
+			if _narration and _narration.text == "That is not the dawn count.":
+				_narration.visible = false
+		)
+
+
+func _show_code(text: String) -> void:
+	if _pad_display:
+		_pad_display.text = text
+	if _code_label:
+		_code_label.text = text
 
 
 func _pad_input(event: InputEvent) -> void:
@@ -797,6 +1053,7 @@ func _update_hover() -> void:
 	var to: Vector3 = from + (-_cam.global_transform.basis.z) * 3.4
 	var q := PhysicsRayQueryParameters3D.create(from, to)
 	q.exclude = [_player.get_rid()]
+	q.collision_mask = 0xFFFFFFFF
 	var hit := get_world_3d().direct_space_state.intersect_ray(q)
 	if hit:
 		var n: Node = hit.get("collider")
@@ -892,6 +1149,8 @@ func _hint_for(id: String) -> String:
 				return "A pay slip  4 1 8"
 			return ""
 		_:
+			if id.begins_with("digit_"):
+				return "A key on the front of the till"
 			return ""
 
 
@@ -922,7 +1181,8 @@ func _use() -> void:
 			if not _flags["fuse"]:
 				_flags["fuse"] = true
 				EscapeInventory.add_item("fuse", "Fuse")
-				_flicker.light_energy = 0.15
+				_flicker.light_energy = 0.0
+				_dim_for_fuse()
 				_say("A warm fuse. The light dies.")
 				_persist()
 		"stool_note":
@@ -932,12 +1192,17 @@ func _use() -> void:
 				if _notebook_mesh:
 					_notebook_mesh.visible = false
 				_say("Dawn count is not luck. Set the house line on the wall. Feed the till after the window pays.")
+				_narrate("Dawn count is not luck. Set the house line. Feed the till after the window pays.")
 				_persist()
 		"stool_empty":
 			_say("Dust and a dead match.")
 		"house_line":
+			var first_read := not bool(_flags["wallpaper"])
 			_flags["wallpaper"] = true
 			_say("The house line: pineapple, leaf, coconut.")
+			_narrate("Pineapple. Leaf. Coconut.")
+			if first_read:
+				_one_shot("res://audio/lounge/house_line.wav", -4.0)
 			_persist()
 		"plinth":
 			if not _flags["flashlight"]:
@@ -952,6 +1217,9 @@ func _use() -> void:
 		"slip":
 			if _flags["jackpot"]:
 				_say("4 1 8")
+		_:
+			if _hover_id.begins_with("digit_"):
+				_press_digit(int(_hover_id.substr(6)))
 
 
 func _use_door() -> void:
@@ -961,9 +1229,14 @@ func _use_door() -> void:
 	if EscapeInventory.has_item("key"):
 		EscapeInventory.take("key")
 		_flags["door_open"] = true
-		_chain.visible = false
+		if _chain:
+			_chain.visible = false
+		var lock := _named("Padlock")
+		if lock:
+			lock.visible = false
 		var tw := create_tween()
 		tw.tween_property(_door, "rotation_degrees:y", -75.0, 0.8)
+		_one_shot("res://audio/lounge/chain.wav", 4.0)
 		_say("The chain drops.")
 		_persist()
 		tw.tween_callback(_finish)
@@ -990,6 +1263,7 @@ func _finish_turn() -> void:
 	if ang > deg_to_rad(150.0):
 		_dump_coins()
 	else:
+		_one_shot("res://audio/lounge/pin.wav", -6.0)
 		_say("It turns on the pin. Keep going.")
 
 
@@ -1007,10 +1281,17 @@ func _pull_paper() -> void:
 func _dump_coins() -> void:
 	_flags["bird_turned"] = true
 	_flags["coins_dumped"] = true
+	_one_shot("res://audio/lounge/coins.wav", -2.0)
 	_say("The hopper coughs. Brass on the floor.")
+	_spawn_coins(7)
+	_persist()
+	_busy = false
+
+
+func _spawn_coins(count: int) -> void:
 	var cab: Node3D = _cabs[0]
 	var origin := cab.global_position
-	for i in 7:
+	for i in count:
 		var coin := StaticBody3D.new()
 		coin.name = "Coin_%d" % i
 		coin.set_meta("use_id", "coin")
@@ -1034,8 +1315,6 @@ func _dump_coins() -> void:
 		var row := int(i / 4.0)
 		coin.position = origin + Vector3(-0.40 + float(col_i) * 0.26, 0.03, 1.45 + float(row) * 0.32)
 		add_child(coin)
-	_persist()
-	_busy = false
 
 
 func _take_notice() -> void:
@@ -1064,6 +1343,7 @@ func _take_notice() -> void:
 		_notice.visible = false
 		_busy = false
 		_say("PALOMA HOUSE CLOSED — STAFF LEFT THE TILL.")
+		_narrate("Paloma House closed. Staff left the till.")
 		_persist()
 	)
 
@@ -1108,6 +1388,7 @@ func _cycle_reel(idx: int) -> void:
 	var cell: MeshInstance3D = cab.find_child("Cell_%d_1" % (idx + 1), true, false) as MeshInstance3D
 	if cell:
 		_set_reel_tex(cell, str(_reel_ids[idx]))
+	_one_shot("res://audio/lounge/click.wav", -8.0)
 	if _reel_ids[0] == JACKPOT[0] and _reel_ids[1] == JACKPOT[1] and _reel_ids[2] == JACKPOT[2]:
 		_do_jackpot()
 
@@ -1115,15 +1396,44 @@ func _cycle_reel(idx: int) -> void:
 func _do_jackpot() -> void:
 	_flags["jackpot"] = true
 	_slip.visible = true
-	_register_light.light_energy = 0.8
+	_one_shot("res://audio/lounge/till.wav", -4.0)
 	_say("The window pays. A slip in the tray. The till clicks.")
-	var flash := create_tween()
-	flash.tween_property(_register_light, "light_energy", 2.0, 0.1)
-	flash.tween_property(_register_light, "light_energy", 0.8, 0.4)
+	_narrate("A slip in the tray. 4 1 8.")
 	_persist()
 
 
+func _light_the_screen() -> void:
+	if _register_light:
+		_register_light.light_energy = 1.2
+	var screen := _named("RegisterScreen") as MeshInstance3D
+	if screen == null:
+		return
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.12, 0.45, 0.22)
+	mat.emission_enabled = true
+	mat.emission = Color(0.25, 0.95, 0.4)
+	mat.emission_energy_multiplier = 1.6
+	screen.material_override = mat
+
+
+func _press_digit(d: int) -> void:
+	if not _at_till_front():
+		_say("The keypad is on the other side of the till.")
+		return
+	if _flags["has_key"]:
+		_say("The drawer is empty.")
+		return
+	if not _flags["jackpot"] or not _flags["fuse_in"]:
+		_say("The keypad is dead.")
+		return
+	_one_shot("res://audio/lounge/click.wav", -10.0)
+	_pad_digit(d)
+
+
 func _use_register() -> void:
+	if not _at_till_front():
+		_say("The keypad is on the other side of the till.")
+		return
 	if _flags["has_key"]:
 		_say("The drawer is empty.")
 		return
@@ -1134,15 +1444,16 @@ func _use_register() -> void:
 		if EscapeInventory.has_item("fuse"):
 			EscapeInventory.take("fuse")
 			_flags["fuse_in"] = true
-			_say("The screen coughs green.")
+			_light_the_screen()
+			if _code_label:
+				_code_label.modulate = Color(0.7, 1.0, 0.75)
+				_code_label.text = "---"
+			_say("The screen coughs green. The keypad is on the till.")
 			_persist()
 		else:
 			_say("Screen dark. Something still pops in the roof.")
-			return
-	_pad_value = ""
-	_pad_display.text = "---"
-	_pad.visible = true
-	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+		return
+	_say("Enter the dawn count on the till.")
 
 
 func _set_reel_tex(mi: MeshInstance3D, sym: String) -> void:
@@ -1167,8 +1478,75 @@ func _persist() -> void:
 		Save.progress["escape"] = {}
 	var esc: Dictionary = Save.progress["escape"]
 	esc["room_01"] = _flags.duplicate()
+	esc["room_01_items"] = EscapeInventory.slots.duplicate(true)
+	esc["room_01_reels"] = _reel_ids.duplicate()
 	Save.progress["escape"] = esc
 	Save.write_disk()
+
+
+func _restore_progress() -> void:
+	if not Save.progress.has("escape"):
+		return
+	var esc: Dictionary = Save.progress["escape"]
+	if not esc.has("room_01"):
+		return
+	var saved: Dictionary = esc["room_01"]
+	for k in _flags.keys():
+		if not saved.has(k):
+			continue
+		if k == "coins_in_tray":
+			_flags[k] = int(saved[k])
+		else:
+			_flags[k] = bool(saved[k])
+	if esc.has("room_01_items"):
+		EscapeInventory.slots = (esc["room_01_items"] as Array).duplicate(true)
+		EscapeInventory.changed.emit()
+	if esc.has("room_01_reels"):
+		var reels: Array = esc["room_01_reels"]
+		if reels.size() == 3:
+			_reel_ids = reels.duplicate()
+	_apply_saved_world()
+
+
+func _apply_saved_world() -> void:
+	if bool(_flags["bird_turned"]) and _bird_spin:
+		_bird_spin.rotation.y = PI
+	if bool(_flags["coins_dumped"]):
+		var left := 7 - EscapeInventory.count_of("coin") - int(_flags["coins_in_tray"])
+		if left > 0:
+			_spawn_coins(left)
+	_show_saved_reels()
+	if bool(_flags["jackpot"]) and _slip:
+		_slip.visible = true
+	if bool(_flags["notebook"]) and _notebook_mesh:
+		_notebook_mesh.visible = false
+	if bool(_flags["notice"]) and _notice:
+		_notice.visible = false
+	if bool(_flags["fuse"]):
+		_dim_for_fuse()
+	if bool(_flags["fuse_in"]):
+		_light_the_screen()
+	if bool(_flags["door_open"]):
+		if _chain:
+			_chain.visible = false
+		var lock := _named("Padlock")
+		if lock:
+			lock.visible = false
+		if _door:
+			_door.rotation_degrees.y = -75.0
+	if bool(_flags["cleared"]) and _complete:
+		_complete.visible = true
+		_complete.color.a = 0.92
+
+
+func _show_saved_reels() -> void:
+	if _cabs.size() < 2:
+		return
+	var cab: Node3D = _cabs[1]
+	for i in 3:
+		var cell: MeshInstance3D = cab.find_child("Cell_%d_1" % (i + 1), true, false) as MeshInstance3D
+		if cell:
+			_set_reel_tex(cell, str(_reel_ids[i]))
 
 
 func _finish() -> void:

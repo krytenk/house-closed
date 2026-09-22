@@ -22,12 +22,12 @@ Look-down reaches about 60° so the floor in front of you is in the ray.
 
 Was seen in play. 2026-09-21: after the bird turned, seven coins were on the floor, the hint was "Pick up a brass coin", and use took one. The bar showed `>1 Brass coin` and six coins were left.
 
-Still open: picking up all seven, and the coin surviving a reload. See [save.md](save.md).
+A coin now survives a reload. See [save.md](save.md). Picking up all seven in one sitting was not done as its own pass. Three, then one, were taken during the other plays.
 
 ## Check
 
 - [x] After the bird turns, seven coins rest on the floor, not in the air
 - [x] A coin can be looked at. Hint: "Pick up a brass coin"
 - [x] Use takes that coin and adds it to the bar
-- [ ] All seven can be collected
-- [ ] They are still in the bar after leaving and re-entering the room
+- [ ] All seven can be collected in one sitting
+- [x] A coin is still in the bar after leaving and re-entering the room

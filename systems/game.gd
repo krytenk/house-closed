@@ -6,6 +6,7 @@ const SCENES := {
 	"lock": "res://ui/boot/disclaimer_lock.tscn",
 	"lobby": "res://world/hotel_lobby/lobby.tscn",
 	"island": "res://world/paloma_atoll.tscn",
+	"room_01": "res://rooms/room_01_lounge/lounge_escape.tscn",
 	"casino_floor": "res://rooms/tiki_lounge/casino_floor.tscn",
 	"slot_palm": "res://rooms/tiki_lounge/slot_palm.tscn",
 	"lounge": "res://rooms/tiki_lounge/casino_floor.tscn",
@@ -95,7 +96,7 @@ func advance_boot() -> void:
 	if PlaySafe.full_lock:
 		goto("break")
 		return
-	goto("lobby")
+	goto("room_01")
 
 
 func accept_age() -> void:

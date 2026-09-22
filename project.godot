@@ -10,11 +10,11 @@ config_version=5
 
 [application]
 
-config/name="Palm Atoll"
-config/description="A resort you live on, with a casino you can visit. For fun only. You cannot win real money."
-config/version="1.0.0"
-config/tags=PackedStringArray("resort", "board", "18plus")
-run/main_scene="res://ui/boot/splash.tscn"
+config/name="House Closed"
+config/description="You wake in a shuttered casino. Find the way out. One room at a time."
+config/version="0.1.0"
+config/tags=PackedStringArray("escape", "18plus")
+run/main_scene="res://rooms/room_01_lounge/lounge_escape.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://icon.png"
 
@@ -29,6 +29,7 @@ RegionPolicy="*res://systems/region_policy.gd"
 IapStub="*res://systems/iap_stub.gd"
 Save="*res://systems/save.gd"
 Game="*res://systems/game.gd"
+EscapeInventory="*res://systems/escape_inventory.gd"
 
 [debug]
 

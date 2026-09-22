@@ -6,6 +6,8 @@
 **Blend:** `tools/abandoned_lounge.blend`  
 **Status:** In play. Hour of puzzles on one floor.
 
+Sound and dread: `docs/ATMOSPHERE.md`. Not in this room yet. Build that after the polish list in `traps/README.md`.
+
 Old name: Tiki Lounge / SLOTS door.
 
 ## Working

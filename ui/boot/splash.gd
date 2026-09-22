@@ -5,7 +5,7 @@ var _advanced: bool = false
 
 func _ready() -> void:
 	$FunOnly.text = Game.text("fun_only")
-	$Title.text = "PALM ATOLL"
+	$Title.text = "HOUSE CLOSED"
 	get_tree().create_timer(1.8).timeout.connect(_advance)
 
 

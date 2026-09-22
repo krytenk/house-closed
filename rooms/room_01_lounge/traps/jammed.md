@@ -1,7 +1,8 @@
 # jammed
 
 - **id:** `jammed`
-- **Status:** not checked
+- **Status:** ok
+- **Played:** 2026-09-21. Before the pay: "Hopper jammed." After: the last digit is 8.
 - **Object:** `Cabinet_2` at `(2.5, 0, -2.15)`
 - **Code:** `_build_cabinets`, `_use` branch `jammed`
 
@@ -11,14 +12,14 @@ Dead hopper. Use after the jackpot says the last digit is 8. Too early: "Hopper 
 
 ## Now
 
-One use box on the cabinet front, same size as the setter tray. No reel cells. Use only calls `_say`. It grants nothing. Not played. It cannot be reached in a full run until [setter.md](setter.md) is fixed.
+One use box on the cabinet front. Use only calls `_say`. It grants nothing.
 
 ## Errors
 
-None recorded.
+None. Both lines were heard in play on 2026-09-21.
 
 ## Check
 
-- [ ] Before the jackpot, use says "Hopper jammed."
-- [ ] After the jackpot, use says the last digit is 8
-- [ ] It does not award an item or open the door
+- [x] Before the jackpot, use says "Hopper jammed."
+- [x] After the jackpot, use says the last digit is 8
+- [x] It does not award an item or open the door

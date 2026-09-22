@@ -1,12 +1,13 @@
 extends Node3D
-## 3D casino lounge — walk among real cabinets, sit to play.
+## Walk the 3D lounge, approach matching cabinets, sit into the polished face.
 
 const ROOM := "res://art/models/casino_lounge.glb"
-const CABINET := "res://art/models/tiki_cabinet.glb"
+const CabinetBuilderScript := preload("res://rooms/tiki_lounge/cabinet_builder.gd")
 
 var _player: CharacterBody3D
 var _cam: Camera3D
 var _hint: Label
+var _sit_btn: Button
 var _cabinets: Array = []
 var _hover: int = -1
 var _entering: bool = false
@@ -17,7 +18,6 @@ var _pitch: float = 0.0
 func _ready() -> void:
 	_build()
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
-	set_process(true)
 	set_physics_process(true)
 
 
@@ -25,29 +25,26 @@ func _exit_tree() -> void:
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 
 
-func _physics_process(delta: float) -> void:
+func _physics_process(_delta: float) -> void:
 	if _entering or _player == null:
 		return
-	var input := Vector2(
-		Input.get_action_strength("ui_right") - Input.get_action_strength("ui_left"),
-		Input.get_action_strength("ui_down") - Input.get_action_strength("ui_up")
-	)
-	# Also WASD via physical keys
-	if Input.is_key_pressed(KEY_A):
+	var input := Vector2.ZERO
+	if Input.is_key_pressed(KEY_A) or Input.is_action_pressed("ui_left"):
 		input.x -= 1
-	if Input.is_key_pressed(KEY_D):
+	if Input.is_key_pressed(KEY_D) or Input.is_action_pressed("ui_right"):
 		input.x += 1
-	if Input.is_key_pressed(KEY_W):
+	if Input.is_key_pressed(KEY_W) or Input.is_action_pressed("ui_up"):
 		input.y -= 1
-	if Input.is_key_pressed(KEY_S):
+	if Input.is_key_pressed(KEY_S) or Input.is_action_pressed("ui_down"):
 		input.y += 1
 	input = input.limit_length(1.0)
 	var basis := Basis.from_euler(Vector3(0, _yaw, 0))
 	var move := (-basis.z * -input.y + basis.x * input.x) * 3.6
-	_player.velocity.x = move.x
-	_player.velocity.z = move.z
-	_player.velocity.y = 0
+	_player.velocity = Vector3(move.x, 0, move.z)
 	_player.move_and_slide()
+	# Keep player in the lounge
+	_player.position.x = clampf(_player.position.x, -5.5, 5.5)
+	_player.position.z = clampf(_player.position.z, -3.5, 3.8)
 	_update_hover()
 
 
@@ -58,7 +55,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		var mm := event as InputEventMouseMotion
 		_yaw -= mm.relative.x * 0.0025
 		_pitch -= mm.relative.y * 0.0020
-		_pitch = clampf(_pitch, -0.45, 0.45)
+		_pitch = clampf(_pitch, -0.4, 0.4)
 		_cam.rotation = Vector3(_pitch, 0, 0)
 		_player.rotation.y = _yaw
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
@@ -78,13 +75,12 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _build() -> void:
-	RenderingServer.set_default_clear_color(Color(0.03, 0.04, 0.06))
+	RenderingServer.set_default_clear_color(Color(0.05, 0.04, 0.03))
 	var room_ps: PackedScene = load(ROOM)
 	var room: Node3D = room_ps.instantiate()
 	room.name = "LoungeMesh"
 	_paint_room(room)
 	add_child(room)
-	# Floor collision
 	var floor_body := StaticBody3D.new()
 	var floor_shape := CollisionShape3D.new()
 	var box := BoxShape3D.new()
@@ -93,12 +89,10 @@ func _build() -> void:
 	floor_body.position = Vector3(0, -0.05, 0)
 	floor_body.add_child(floor_shape)
 	add_child(floor_body)
-	# Player
+
 	_player = CharacterBody3D.new()
 	_player.name = "Player"
-	var spawn := _find_named(room, "PlayerSpawn")
-	_player.position = spawn.global_position if spawn else Vector3(0, 0.1, -1.5)
-	_player.position.y = 0.1
+	_player.position = Vector3(0, 0.1, 1.8)
 	var pcol := CollisionShape3D.new()
 	var cap := CapsuleShape3D.new()
 	cap.radius = 0.28
@@ -108,71 +102,72 @@ func _build() -> void:
 	_player.add_child(pcol)
 	_cam = Camera3D.new()
 	_cam.name = "Cam"
-	_cam.fov = 70.0
+	_cam.fov = 68.0
 	_cam.position = Vector3(0, 1.55, 0)
 	_cam.current = true
 	_player.add_child(_cam)
 	add_child(_player)
-	# Cabinets at spawn markers
-	var cab_ps: PackedScene = load(CABINET)
-	_cabinets.clear()
-	for i in 3:
-		var marker := _find_named(room, "CabinetSpawn_%d" % i)
-		var cab: Node3D = cab_ps.instantiate()
-		cab.name = "Cabinet_%d" % i
-		if marker:
-			cab.global_transform = marker.global_transform
-		else:
-			cab.position = Vector3(-2.4 + float(i) * 2.4, 0, 2.2)
-		# Face toward player spawn (negative Z in room space roughly toward -Y in blender export)
-		# Face player (cabinets sit at -Z; player looks -Z)
-		cab.rotate_y(0)
-		_paint_cabinet(cab)
-		add_child(cab)
-		var area := Area3D.new()
-		area.name = "SitArea"
-		var ashape := CollisionShape3D.new()
-		var abox := BoxShape3D.new()
-		abox.size = Vector3(1.4, 2.2, 1.2)
-		ashape.shape = abox
-		ashape.position = Vector3(0, 1.0, 0.4)
-		area.add_child(ashape)
-		cab.add_child(area)
-		_cabinets.append({"root": cab, "area": area})
-	# Place player facing the bank
-	_player.position = Vector3(0, 0.1, 1.8)
 	_yaw = 0.0
 	_player.rotation.y = 0.0
-	# Lights — warm lounge key + rim on cabinets
+
+	# Three matching cabinets in a bank, facing the player (+Z)
+	_cabinets.clear()
+	for i in 3:
+		var x: float = -2.6 + float(i) * 2.2
+		var cab: Node3D = CabinetBuilderScript.build(self, Vector3(x, 0, -2.0), 1.0)
+		cab.name = "Cabinet_%d" % i
+		var glow := MeshInstance3D.new()
+		var tor := TorusMesh.new()
+		tor.inner_radius = 0.5
+		tor.outer_radius = 0.64
+		glow.mesh = tor
+		glow.position = Vector3(0, 0.04, 0.42)
+		glow.rotation_degrees = Vector3(90, 0, 0)
+		var gm := StandardMaterial3D.new()
+		gm.albedo_color = Color(1.0, 0.75, 0.35, 0.0)
+		gm.emission_enabled = true
+		gm.emission = Color(1.0, 0.7, 0.3)
+		gm.emission_energy_multiplier = 0.0
+		gm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		gm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		glow.material_override = gm
+		glow.name = "SitGlow"
+		cab.add_child(glow)
+		_cabinets.append({"root": cab, "glow": glow})
+	_build_next_tide_plinth()
+
 	var lamp := OmniLight3D.new()
-	lamp.position = Vector3(0, 2.6, 0.5)
+	lamp.position = Vector3(0, 2.5, 0.5)
 	lamp.light_color = Color(1.0, 0.75, 0.45)
-	lamp.light_energy = 5.0
-	lamp.omni_range = 16.0
+	lamp.light_energy = 4.5
+	lamp.omni_range = 18.0
 	add_child(lamp)
 	var key := SpotLight3D.new()
-	key.light_color = Color(1.0, 0.85, 0.6)
-	key.light_energy = 8.0
-	key.spot_range = 12.0
+	key.light_color = Color(1.0, 0.88, 0.65)
+	key.light_energy = 6.5
+	key.spot_range = 14.0
 	key.spot_angle = 55.0
 	add_child(key)
-	key.position = Vector3(0, 2.8, 2.5)
-	key.look_at(Vector3(0, 1.0, -2.2), Vector3.UP)
+	key.position = Vector3(0, 2.6, 2.8)
+	key.look_at(Vector3(0, 1.0, -2.0), Vector3.UP)
 	var fill := DirectionalLight3D.new()
-	fill.rotation_degrees = Vector3(-40, 30, 0)
-	fill.light_color = Color(0.45, 0.55, 0.75)
-	fill.light_energy = 0.55
+	fill.rotation_degrees = Vector3(-40, 25, 0)
+	fill.light_color = Color(0.55, 0.62, 0.8)
+	fill.light_energy = 0.9
 	add_child(fill)
 	var env := WorldEnvironment.new()
 	var e := Environment.new()
 	e.background_mode = Environment.BG_COLOR
-	e.background_color = Color(0.08, 0.06, 0.05)
+	e.background_color = Color(0.08, 0.07, 0.06)
 	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	e.ambient_light_color = Color(0.35, 0.28, 0.22)
-	e.ambient_light_energy = 0.55
+	e.ambient_light_color = Color(0.55, 0.42, 0.32)
+	e.ambient_light_energy = 1.15
 	e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	e.glow_enabled = true
+	e.glow_intensity = 0.35
 	env.environment = e
 	add_child(env)
+
 	var layer := CanvasLayer.new()
 	add_child(layer)
 	_hint = Label.new()
@@ -180,35 +175,70 @@ func _build() -> void:
 	_hint.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	_hint.offset_top = -70
 	_hint.offset_bottom = -28
-	_hint.offset_left = -500
-	_hint.offset_right = 500
+	_hint.offset_left = -520
+	_hint.offset_right = 520
 	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_hint.add_theme_font_size_override("font_size", 18)
 	_hint.add_theme_color_override("font_color", Color(0.97, 0.94, 0.88))
 	_hint.add_theme_color_override("font_outline_color", Color(0.05, 0.05, 0.05))
 	_hint.add_theme_constant_override("outline_size", 5)
-	_hint.text = "WASD move · mouse look · click a cabinet to sit"
+	_hint.text = "WASD move · mouse look · approach a cabinet"
 	layer.add_child(_hint)
+	_sit_btn = Button.new()
+	_sit_btn.name = "SitBtn"
+	_sit_btn.text = "Sit"
+	_sit_btn.visible = false
+	_sit_btn.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_sit_btn.offset_left = -90
+	_sit_btn.offset_right = 90
+	_sit_btn.offset_top = -140
+	_sit_btn.offset_bottom = -84
+	_sit_btn.add_theme_font_size_override("font_size", 24)
+	var sbs := StyleBoxFlat.new()
+	sbs.bg_color = Color(0.85, 0.55, 0.22)
+	sbs.set_corner_radius_all(10)
+	sbs.set_border_width_all(2)
+	sbs.border_color = Color(0.75, 0.5, 0.25)
+	_sit_btn.add_theme_stylebox_override("normal", sbs)
+	_sit_btn.add_theme_color_override("font_color", Color(0.97, 0.94, 0.88))
+	_sit_btn.pressed.connect(func() -> void:
+		if _hover >= 0:
+			_sit(_hover)
+	)
+	layer.add_child(_sit_btn)
 
 
-func _find_named(root: Node, name: String) -> Node3D:
-	var n := root.find_child(name, true, false)
-	return n as Node3D
+func _build_next_tide_plinth() -> void:
+	var p := Node3D.new()
+	p.name = "NextTide"
+	p.position = Vector3(3.9, 0, -2.0)
+	add_child(p)
+	CabinetBuilderScript.box(p, Vector3(0.9, 0.22, 0.7), Vector3(0, 0.12, 0), CabinetBuilderScript.wood_mat(Color(0.28, 0.16, 0.08)), "Plinth")
+	var sign := Label3D.new()
+	sign.text = "Coming with\nthe next tide"
+	sign.font_size = 36
+	sign.pixel_size = 0.0035
+	sign.modulate = Color(0.92, 0.86, 0.72)
+	sign.outline_modulate = Color(0.08, 0.05, 0.03)
+	sign.outline_size = 8
+	sign.position = Vector3(0, 0.42, 0.2)
+	sign.name = "PlinthSign"
+	p.add_child(sign)
 
 
 func _paint_room(room: Node) -> void:
 	var floor_m := StandardMaterial3D.new()
-	floor_m.albedo_color = Color(0.2, 0.11, 0.05)
-	floor_m.roughness = 0.6
+	floor_m.albedo_color = Color(0.42, 0.26, 0.14)
+	floor_m.roughness = 0.55
 	var wall_m := StandardMaterial3D.new()
-	wall_m.albedo_color = Color(0.18, 0.1, 0.06)
+	wall_m.albedo_color = Color(0.72, 0.62, 0.5)
 	wall_m.roughness = 0.7
 	var thatch_m := StandardMaterial3D.new()
-	thatch_m.albedo_color = Color(0.5, 0.34, 0.16)
+	thatch_m.albedo_color = Color(0.55, 0.38, 0.18)
 	thatch_m.roughness = 0.85
 	var ocean_m := StandardMaterial3D.new()
-	ocean_m.albedo_color = Color(0.03, 0.1, 0.18)
-	ocean_m.roughness = 0.2
+	ocean_m.albedo_color = Color(0.08, 0.18, 0.32)
+	ocean_m.roughness = 0.25
 	for mi in room.find_children("*", "MeshInstance3D", true, false):
 		var mesh_i := mi as MeshInstance3D
 		var n: String = mesh_i.name.to_lower()
@@ -222,71 +252,63 @@ func _paint_room(room: Node) -> void:
 			mesh_i.material_override = wall_m
 
 
-func _paint_cabinet(cab: Node) -> void:
-	## Ensure imported meshes read as carved wood under Compatibility renderer.
-	var wood := StandardMaterial3D.new()
-	wood.albedo_color = Color(0.32, 0.16, 0.07)
-	wood.roughness = 0.42
-	var dark := StandardMaterial3D.new()
-	dark.albedo_color = Color(0.14, 0.07, 0.03)
-	dark.roughness = 0.5
-	var amber := StandardMaterial3D.new()
-	amber.albedo_color = Color(0.95, 0.55, 0.15)
-	amber.emission_enabled = true
-	amber.emission = Color(0.95, 0.45, 0.1)
-	amber.emission_energy_multiplier = 1.2
-	for mi in cab.find_children("*", "MeshInstance3D", true, false):
-		var mesh_i := mi as MeshInstance3D
-		var n: String = mesh_i.name.to_lower()
-		if n.find("eye") != -1:
-			mesh_i.material_override = amber
-		elif n.find("dark") != -1 or n.find("mouth") != -1 or n.find("brow") != -1 or n.find("belly") != -1 or n.find("side") != -1 or n.find("leg") != -1 or n.find("base") != -1:
-			mesh_i.material_override = dark
-		elif n.find("glass") != -1:
-			var g := StandardMaterial3D.new()
-			g.albedo_color = Color(0.04, 0.04, 0.05, 0.65)
-			g.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-			g.roughness = 0.08
-			mesh_i.material_override = g
-		else:
-			mesh_i.material_override = wood
-
-
 func _update_hover() -> void:
 	_hover = -1
-	if _player == null:
-		return
 	var best_d := 2.4
 	for i in _cabinets.size():
 		var cab: Node3D = (_cabinets[i] as Dictionary)["root"]
-		var d: float = _player.global_position.distance_to(cab.global_position)
-		# Must roughly face the cabinet
-		var to_cab: Vector3 = (cab.global_position - _player.global_position).normalized()
-		var forward: Vector3 = -_player.global_transform.basis.z
-		var facing: float = forward.dot(to_cab)
-		if d < best_d and facing > 0.35:
+		var d: float = _player.global_position.distance_to(cab.global_position + Vector3(0, 0, 0.5))
+		var to_cab: Vector3 = (cab.global_position - _player.global_position)
+		to_cab.y = 0
+		if to_cab.length() < 0.01:
+			continue
+		var facing: float = (-_player.global_transform.basis.z).dot(to_cab.normalized())
+		if d < best_d and facing > 0.15:
 			best_d = d
 			_hover = i
+	for i in _cabinets.size():
+		var glow: MeshInstance3D = (_cabinets[i] as Dictionary)["glow"]
+		var gm: StandardMaterial3D = glow.material_override
+		if i == _hover:
+			gm.albedo_color.a = 0.65
+			gm.emission_energy_multiplier = 2.4
+		else:
+			gm.albedo_color.a = 0.0
+			gm.emission_energy_multiplier = 0.0
+	_sit_btn.visible = _hover >= 0
 	if _hover >= 0:
-		_hint.text = "Click or Space — sit at machine"
+		_hint.text = "Sit at this machine"
 	else:
 		_hint.text = "WASD move · mouse look · approach a cabinet"
 
 
 func _sit(idx: int) -> void:
-	if _entering:
+	if _entering or idx < 0 or idx >= _cabinets.size():
 		return
 	if not PlaySafe.chance_staking_allowed():
 		Game.toast(Game.text("cool_off_on"))
 		return
 	_entering = true
+	_sit_btn.visible = false
+	_hint.text = ""
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	var cab: Node3D = (_cabinets[idx] as Dictionary)["root"]
-	var target: Vector3 = cab.global_position + cab.global_transform.basis.z * 1.15 + Vector3(0, 1.45, 0)
-	var look_at_pt: Vector3 = cab.global_position + Vector3(0, 1.35, 0)
+	var rw: Node3D = cab.find_child("ReelWindow", true, false) as Node3D
+	var glass: Vector3 = cab.global_position + Vector3(0, 1.18, 0.45)
+	if rw:
+		glass = rw.global_position
+	var cam_pos: Vector3 = glass + Vector3(0, -0.28, 2.5)
+	# Detach cam from player for the dolly
+	var gpos: Vector3 = _cam.global_position
+	var grot: Vector3 = _cam.global_rotation
+	_player.remove_child(_cam)
+	add_child(_cam)
+	_cam.global_position = gpos
+	_cam.global_rotation = grot
 	var tw := create_tween()
-	tw.tween_property(_cam, "global_position", target, 0.65)
+	tw.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_property(_cam, "global_position", cam_pos, 0.75)
 	tw.parallel().tween_callback(func() -> void:
-		_cam.look_at(look_at_pt, Vector3.UP)
+		_cam.look_at(glass + Vector3(0, 0.35, 0), Vector3.UP)
 	)
 	tw.tween_callback(func() -> void: Game.enter_chance_room("slot_palm"))
