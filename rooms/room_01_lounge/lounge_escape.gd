@@ -73,7 +73,7 @@ func _ready() -> void:
 	_age_the_house()
 	_build_hud()
 	_restore_progress()
-	if bool(_flags["cleared"]):
+	if bool(_flags["cleared"]) or OS.has_feature("web"):
 		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	else:
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
@@ -122,6 +122,9 @@ func _physics_process(_delta: float) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if _complete.visible:
+		return
+	if OS.has_feature("web") and event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 		return
 	if _pad.visible:
 		_pad_input(event)
@@ -449,7 +452,7 @@ func _till_key(pad: Node3D, digit: int, at: Vector3) -> void:
 	mesh.size = Vector3(0.022, 0.006, 0.016)
 	key.mesh = mesh
 	key.position = at
-	key.material_override = CabinetBuilderScript.mat(Color(0.62, 0.54, 0.34), 0.45)
+	key.material_override = CabinetBuilderScript.mat(Color(0.4, 0.32, 0.2), 0.78)
 	key.name = "Key_%d" % digit
 	pad.add_child(key)
 	var glyph := Label3D.new()
@@ -480,33 +483,69 @@ func _at_till_front() -> bool:
 
 
 func _age_the_house() -> void:
-	if _lounge:
-		for name in ["Bar", "Floor", "BarTop"]:
-			var mi := _named(name) as MeshInstance3D
-			_dull_mesh(mi, 0.18)
-		for i in 4:
-			_dull_mesh(_named("Stool_%d" % i) as MeshInstance3D, 0.22)
-		for post in _lounge.find_children("Post_*", "MeshInstance3D", true, false):
-			_dull_mesh(post as MeshInstance3D, 0.2)
+	# Floor, walls, bar, and stools are already baked. Dust only the machines,
+	# which are built here and would still look new next to that room.
+	var dust := _dust_texture()
 	for cab in _cabs:
-		if cab is Node3D:
-			for mi in (cab as Node3D).find_children("*", "MeshInstance3D", true, false):
-				var mesh_node := mi as MeshInstance3D
-				if str(mesh_node.name).begins_with("Cell_"):
-					continue
-				_dull_mesh(mesh_node, 0.28)
+		if cab is not Node3D:
+			continue
+		var lamp := (cab as Node3D).find_child("WindowLight", true, false) as OmniLight3D
+		if lamp:
+			lamp.light_energy = 0.12
+			lamp.light_color = Color(0.55, 0.4, 0.22)
+		for mi in (cab as Node3D).find_children("*", "MeshInstance3D", true, false):
+			var mesh_node := mi as MeshInstance3D
+			var mesh_name := str(mesh_node.name)
+			if mesh_name.begins_with("Cell_"):
+				continue
+			_dust_mesh(mesh_node, dust)
 
 
-func _dull_mesh(mi: MeshInstance3D, amount: float) -> void:
+func _dust_texture() -> Texture2D:
+	var size := 256
+	var img := Image.create(size, size, false, Image.FORMAT_RGB8)
+	for y in size:
+		var v := float(y) / float(size)
+		for x in size:
+			var u := float(x) / float(size)
+			var n := 0.7
+			n += 0.05 * sin(u * TAU * 4.0 + 0.8) * sin(v * TAU * 3.0)
+			var blot := sin(u * TAU * 2.0 + 1.4) * sin(v * TAU * 2.0 + 0.3)
+			if blot > 0.15:
+				n -= 0.4
+			elif blot < -0.4:
+				n -= 0.18
+			if v < 0.16:
+				n -= (0.16 - v) * 1.6
+			n = clampf(n, 0.22, 1.0)
+			img.set_pixel(x, y, Color(n, n * 0.88, n * 0.72))
+	return ImageTexture.create_from_image(img)
+
+
+func _dust_mesh(mi: MeshInstance3D, dust: Texture2D) -> void:
 	if mi == null:
 		return
 	var src := mi.get_active_material(0)
 	if src is not StandardMaterial3D:
 		return
 	var m := (src as StandardMaterial3D).duplicate() as StandardMaterial3D
-	m.albedo_color = m.albedo_color.darkened(amount)
-	m.roughness = clampf(m.roughness + 0.18, 0.0, 1.0)
-	mi.set_surface_override_material(0, m)
+	if mi.name == "Glass":
+		m.albedo_color = Color(0.42, 0.38, 0.3, 0.14)
+		m.roughness = 0.42
+		mi.set_surface_override_material(0, m)
+		return
+	var faded := m.albedo_color
+	faded = Color(faded.r * 0.55, faded.g * 0.48, faded.b * 0.42, faded.a)
+	if m.albedo_texture == null:
+		m.albedo_texture = dust
+		m.uv1_scale = Vector3(1.15, 1.4, 1.0)
+		m.uv1_offset = Vector3(float(hash(mi.name)) * 0.001, float(mi.get_instance_id() % 17) * 0.07, 0.0)
+	m.albedo_color = faded
+	m.roughness = clampf(maxf(m.roughness, 0.88), 0.0, 1.0)
+	if m.emission_enabled:
+		m.emission_energy_multiplier *= 0.35
+	# CabinetBuilder assigns material_override, which beats a surface override.
+	mi.material_override = m
 
 
 func _dress() -> void:
@@ -527,20 +566,23 @@ func _dress() -> void:
 
 
 func _paper_the_walls() -> void:
-	var paper := StandardMaterial3D.new()
-	var path := ProjectSettings.globalize_path("res://art/seasons/paloma/wallpaper_lounge.png")
-	var img := Image.load_from_file(path)
-	if img:
-		paper.albedo_texture = ImageTexture.create_from_image(img)
-	else:
-		paper.albedo_color = Color(0.62, 0.52, 0.38)
-	paper.uv1_scale = Vector3(2.2, 1.6, 1.0)
-	paper.roughness = 0.88
-	paper.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR
+	# Baked wallpaper already carries the stains. A flat override would hide them.
 	for n in ["WallpaperLeft", "WallLeft", "WallRight", "WallBack"]:
 		var mesh_i: MeshInstance3D = _named(n) as MeshInstance3D
-		if mesh_i:
-			mesh_i.material_override = paper
+		if mesh_i == null:
+			continue
+		var current := mesh_i.get_active_material(0) as StandardMaterial3D
+		if current and current.albedo_texture:
+			continue
+		var paper := StandardMaterial3D.new()
+		var path := ProjectSettings.globalize_path("res://art/seasons/paloma/wallpaper_lounge.png")
+		var img := Image.load_from_file(path)
+		if img:
+			paper.albedo_texture = ImageTexture.create_from_image(img)
+		paper.albedo_color = Color(0.62, 0.52, 0.4)
+		paper.uv1_scale = Vector3(2.2, 1.6, 1.0)
+		paper.roughness = 0.96
+		mesh_i.material_override = paper
 
 
 func _build_house_line() -> void:
@@ -687,12 +729,12 @@ func _build_hud() -> void:
 	done.set_anchors_preset(Control.PRESET_CENTER)
 	done.offset_left = -480
 	done.offset_right = 480
-	done.offset_top = -60
-	done.offset_bottom = 60
+	done.offset_top = -100
+	done.offset_bottom = 100
 	done.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	done.add_theme_font_size_override("font_size", 26)
 	done.add_theme_color_override("font_color", Color(0.92, 0.86, 0.74))
-	done.text = "Room 01 clear.\nThe lobby is still sealed."
+	done.text = "Room 01 clear.\nThe lobby is still sealed.\nThe next rooms are coming."
 	_complete.add_child(done)
 	_blink = ColorRect.new()
 	_blink.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -951,8 +993,9 @@ func _wood_mat() -> StandardMaterial3D:
 		var img := Image.load_from_file(ProjectSettings.globalize_path(path))
 		if img:
 			m.albedo_texture = ImageTexture.create_from_image(img)
-	m.uv1_scale = Vector3(1.6, 0.45, 1.0)
-	m.roughness = 0.72
+	m.albedo_color = Color(0.52, 0.4, 0.28)
+	m.uv1_scale = Vector3(2.2, 0.4, 1.0)
+	m.roughness = 0.94
 	return m
 
 
@@ -980,7 +1023,7 @@ func _board_the_window() -> void:
 	paper.size = Vector2(0.62, 0.36)
 	sheet.mesh = paper
 	var pm := StandardMaterial3D.new()
-	pm.albedo_color = Color(0.86, 0.8, 0.66)
+	pm.albedo_color = Color(0.7, 0.62, 0.46)
 	pm.roughness = 0.9
 	pm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	sheet.material_override = pm
@@ -1005,7 +1048,11 @@ func _board_the_window() -> void:
 		plank.mesh = mesh
 		plank.position = Vector3(0.0, plank_y[i], 0.0)
 		plank.rotation_degrees = Vector3(0, 0, -0.5 + float(i) * 0.2)
-		plank.material_override = wood
+		var worn := wood.duplicate() as StandardMaterial3D
+		var shade := 0.78 + float(i) * 0.04
+		worn.albedo_color = Color(0.46 * shade, 0.34 * shade, 0.24 * shade)
+		worn.uv1_offset = Vector3(float(i) * 0.19, float(i) * 0.07, 0.0)
+		plank.material_override = worn
 		plank.name = "Plank_%d" % i
 		group.add_child(plank)
 		_add_mesh_collision(plank)
@@ -1096,6 +1143,9 @@ func _update_hover() -> void:
 				_hover_node = n
 				break
 			n = n.get_parent()
+	if OS.has_feature("web") and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+		_hint.text = "Click to look."
+		return
 	var hover_hint := _hint_for(_hover_id)
 	if hover_hint != "":
 		_hint.text = hover_hint
@@ -1335,7 +1385,7 @@ func _spawn_coins(count: int) -> void:
 		mesh.height = 0.014
 		mi.mesh = mesh
 		mi.position.y = 0.01
-		mi.material_override = CabinetBuilderScript.mat(Color(0.82, 0.62, 0.22), 0.32, Color(0.75, 0.5, 0.12), 0.35)
+		mi.material_override = CabinetBuilderScript.mat(Color(0.46, 0.34, 0.16), 0.74, Color(0.32, 0.22, 0.08), 0.05)
 		coin.add_child(mi)
 		var col := CollisionShape3D.new()
 		var sh := CylinderShape3D.new()

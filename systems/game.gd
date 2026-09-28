@@ -111,7 +111,7 @@ func accept_disclaimer() -> void:
 		return
 	Save.disclaimer_accepted = true
 	Save.write_disk()
-	goto("lobby")
+	goto("room_01")
 
 
 func request_walk() -> Dictionary:

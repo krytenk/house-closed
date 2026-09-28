@@ -17,7 +17,7 @@ First-person. You wake in a closed casino. The door is locked. You leave by usin
 - No fake timers, HURRY, WIN BIG, affection meters, children as characters.
 - Tone: quiet abandonment. No jump-scare budget unless a future ROOM.md says so. Master plan: `docs/ATMOSPHERE.md`.
 
-Boot: `res://rooms/room_01_lounge/lounge_escape.tscn` (see `project.godot` main scene).
+Boot: splash, age gate, then `res://rooms/room_01_lounge/lounge_escape.tscn`. The project main scene is the splash.
 
 ---
 
@@ -101,6 +101,22 @@ A room is working when all of this is true:
 
 ---
 
+## Free demo page
+
+Room 01 can ship alone, free, in the browser. Later rooms stay sealed. The page is not a store for the next rooms.
+
+Short description: A free first room. You wake in a shuttered lounge. The rest of the house is still sealed.
+
+Genre: Puzzle.
+
+Keyword tags: 3D, First-Person, Atmospheric, Exploration, Mystery, Escape Game, Short, Singleplayer, Godot, Episodic.
+
+Do not use Horror, Psychological Horror, Scary, or Adult. Adult on that site means sexual content.
+
+Press pictures are in `art/press/house_closed/`. The cover is 1260×1000, which is the 630×500 page shape at twice the size. The web export preset is `Web`. Built zips stay out of git.
+
+---
+
 ## Leftover Palm Atoll (do not ship)
 
 Keep on disk; do not call from Room 01+:
@@ -110,7 +126,7 @@ Keep on disk; do not call from Room 01+:
 - `rooms/coral_salon/*` roulette
 - `world/paloma_atoll.tscn` board loop
 - `systems/economy.gd`, `daylight.gd`, `iap_stub.gd` as live loops
-- Age-gate gambling copy on splash (splash is not the main scene)
+- Old chance scenes. The splash is the main scene, and after the age question it enters Room 01.
 
 ---
 

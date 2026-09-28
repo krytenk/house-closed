@@ -81,5 +81,5 @@ anchor_bottom = 1.0
 offset_top = -120.0
 theme_override_colors/font_color = Color(0.878431, 0.478431, 0.372549, 1)
 theme_override_font_sizes/font_size = 24
-text = "Palm Atoll is for adults only."
+text = "House Closed is for adults only."
 horizontal_alignment = 1

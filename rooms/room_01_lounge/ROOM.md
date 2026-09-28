@@ -12,7 +12,7 @@ Old name: Tiki Lounge / SLOTS door.
 
 ## Working
 
-Wake FPV → cannot walk through bar/walls/machines → turn bird → 7 coins → house line P-L-C → 3 coins in centre tray → set reels → slip `418` → fuse in lantern → till code → house key → chained door opens → *Room 01 clear. The lobby is still sealed.*
+Wake FPV → cannot walk through bar/walls/machines → turn bird → 7 coins → house line P-L-C → 3 coins in centre tray → set reels → slip `418` → fuse in lantern → till code → house key → chained door opens → *Room 01 clear. The lobby is still sealed. The next rooms are coming.*
 
 ## Layout (Godot)
 

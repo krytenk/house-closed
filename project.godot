@@ -14,7 +14,7 @@ config/name="House Closed"
 config/description="You wake in a shuttered casino. Find the way out. One room at a time."
 config/version="0.1.0"
 config/tags=PackedStringArray("escape", "18plus")
-run/main_scene="res://rooms/room_01_lounge/lounge_escape.tscn"
+run/main_scene="res://ui/boot/splash.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://icon.png"
 
